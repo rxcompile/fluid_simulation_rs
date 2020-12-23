@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cargo",
+            "command": "build",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "build",
+            "label": "Rust: cargo build"
+        },
+        {
+            "type": "cargo",
+            "command": "test",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "test",
+            "label": "Rust: cargo test"
+        },
+        {
+            "type": "cargo",
+            "command": "bench",
+            "problemMatcher": [
+                "$rustc"
+            ],
+            "group": "test",
+            "label": "Rust: cargo bench"
+        }
+    ]
+}
