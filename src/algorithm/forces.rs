@@ -1,6 +1,6 @@
-use math::{X_FORW, Y_BACK, Y_FORW, Z_FORW};
-
-use crate::math::{self, Array3D, Indexable3D, ONES, X_BACK, Z_BACK};
+use crate::math::{
+    self, Array3D, Indexable3D, ONES, X_BACK, X_FORW, Y_BACK, Y_FORW, Z_BACK, Z_FORW,
+};
 
 pub fn decay_velocity(dst: &mut Array3D<f32>, src: &Array3D<f32>, coefficient: f32) {
     for c in math::iterate(dst.size()) {

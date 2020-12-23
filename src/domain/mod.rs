@@ -1,8 +1,9 @@
+pub mod fluid;
+
+use fluid::FlowFlags;
 use crate::{
     algorithm::{advection, diffusion, forces},
-    fluid::FlowFlags,
-    math::{Array3D, Coords, Indexable3D, SizeCreatable},
-    swapchain::{Swapable, Swapchain, SwapchainPack},
+    math::{Array3D, Coords, Indexable3D, SizeCreatable, swapchain::{Swapable, Swapchain, SwapchainPack}},
 };
 
 pub struct Domain<const SWAPCHAIN_SIZE: usize> {

@@ -1,8 +1,6 @@
-use math::CoordsDiff;
-
 use crate::{
-    fluid::FlowFlags,
-    math::{self, Array3D, Coords, Indexable3D, ONES},
+    domain::fluid::FlowFlags,
+    math::{self, Array3D, Coords, CoordsDiff, Indexable3D, ONES},
 };
 
 const DIFF_TABLE: [CoordsDiff; 8] = [

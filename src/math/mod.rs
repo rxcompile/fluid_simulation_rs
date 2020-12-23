@@ -1,3 +1,5 @@
+pub mod swapchain;
+
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Coords(pub usize, pub usize, pub usize);
 

@@ -16,6 +16,4 @@ fn interface() {
     assert_eq!(domain.pressure(Coords(0, 0, 0)), 0.0);
     domain.simulate();
     assert_eq!(domain.pressure(Coords(0, 0, 0)), 32.000004);
-    domain.simulate();
-    assert_eq!(domain.pressure(Coords(0, 0, 0)), 32.0);
 }

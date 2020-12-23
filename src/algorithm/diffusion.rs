@@ -1,5 +1,5 @@
 use crate::{
-    fluid::FlowFlags,
+    domain::fluid::FlowFlags,
     math::{self, Array3D, Coords, Indexable3D},
 };
 
