@@ -5,7 +5,6 @@ pub struct Coords(pub usize, pub usize, pub usize);
 pub struct CoordsDiff(pub isize, pub isize, pub isize);
 
 pub const ONES: CoordsDiff = CoordsDiff(1, 1, 1);
-pub const ZEROS: CoordsDiff = CoordsDiff(0, 0, 0);
 pub const X_FORW: CoordsDiff = CoordsDiff(1, 0, 0);
 pub const Y_FORW: CoordsDiff = CoordsDiff(0, 1, 0);
 pub const Z_FORW: CoordsDiff = CoordsDiff(0, 0, 1);

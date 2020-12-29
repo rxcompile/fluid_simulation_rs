@@ -33,17 +33,15 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
     }
 
     pub fn velocity(&self, c: Coords) -> (f32, f32, f32) {
-        (
-            *self.data.velocity[0].element(c),
-            *self.data.velocity[1].element(c),
-            *self.data.velocity[2].element(c),
-        )
+        let vel = self.data.velocity.element(c);
+        (*vel[0], *vel[1], *vel[2])
     }
 
     pub fn set_velocity(&mut self, c: Coords, v: (f32, f32, f32)) {
-        *self.data.velocity[0].element_mut(c) = v.0;
-        *self.data.velocity[1].element_mut(c) = v.1;
-        *self.data.velocity[2].element_mut(c) = v.2;
+        let vel = self.data.velocity.element_mut(c);
+        *vel[0] = v.0;
+        *vel[1] = v.1;
+        *vel[2] = v.2;
     }
 
     pub fn simulate(&mut self) {
@@ -80,12 +78,9 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
         if let Some(pressure_acceleration) = self.prop.pressure_acceleration {
             self.data.velocity.copy_from_read();
             let force = pressure_acceleration * self.prop.step_delta_time;
-            let mut witer = self.data.velocity.iter_mut();
             forces::pressuarize(
-                witer.next().unwrap().write(),
-                witer.next().unwrap().write(),
-                witer.next().unwrap().write(),
-                self.data.pressure[0].read(),
+                &mut self.data.velocity,
+                &self.data.pressure,
                 force,
             );
             // swapchain
@@ -101,11 +96,8 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
                 self.data.velocity[1].read(),
                 self.data.velocity[2].read(),
             );
-            let mut witer = self.data.velocity.iter_mut();
             forces::apply_vortex(
-                witer.next().unwrap().write(),
-                witer.next().unwrap().write(),
-                witer.next().unwrap().write(),
+                &mut self.data.velocity,
                 &self.temp.vorticies,
                 force,
             );
@@ -125,11 +117,6 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
             return;
         }
 
-        let (rx, ry, rz) = (
-            self.data.velocity[0].read(),
-            self.data.velocity[1].read(),
-            self.data.velocity[2].read(),
-        );
         // cleanup totals
         self.temp.forward_velocity_coefficients_totals.fill(0.0);
         self.temp.reverse_velocity_coefficients_totals.fill(0.0);
@@ -140,27 +127,21 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
         advection::generate_advection_coefficients(
             &mut self.temp.forward_velocity_coefficients,
             &mut self.temp.forward_velocity_coefficients_totals,
-            rx,
-            ry,
-            rz,
+            &self.data.velocity,
             &self.data.blockage,
             scale * self.prop.velocity_props.advection,
         );
         advection::generate_advection_coefficients(
             &mut self.temp.reverse_velocity_coefficients,
             &mut self.temp.reverse_velocity_coefficients_totals,
-            rx,
-            ry,
-            rz,
+            &self.data.velocity,
             &self.data.blockage,
             -scale * self.prop.velocity_props.advection,
         );
         advection::generate_advection_coefficients(
             &mut self.temp.pressure_coefficients,
             &mut self.temp.pressure_coefficients_totals,
-            rx,
-            ry,
-            rz,
+            &self.data.velocity,
             &self.data.blockage,
             scale * self.prop.pressure_props.advection,
         );

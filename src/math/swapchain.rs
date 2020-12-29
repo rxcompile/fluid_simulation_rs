@@ -1,4 +1,7 @@
-use crate::math::{Coords, Indexable3D, Indexable3DMut};
+use crate::{
+    math::{Coords, Indexable3D, Indexable3DMut},
+    support_utils::construct_from,
+};
 use std::mem::MaybeUninit;
 
 use super::Sizeable3D;
@@ -112,5 +115,39 @@ where
 
     fn copy_from_read(&mut self) {
         self.iter_mut().for_each(|x| x.copy_from_read())
+    }
+}
+
+impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Sizeable3D
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
+where
+    T: Sizeable3D,
+{
+    fn size(&self) -> Coords {
+        self[0].size()
+    }
+}
+
+impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Indexable3D<'a>
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
+where
+    T: Indexable3D<'a>,
+{
+    type Output = [T::Output; PACK_SIZE];
+
+    fn element(&'a self, c: Coords) -> Self::Output {
+        construct_from(self.iter().map(|i| i.element(c)))
+    }
+}
+
+impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Indexable3DMut<'a>
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
+where
+    T: Indexable3DMut<'a>,
+{
+    type Output = [T::Output; PACK_SIZE];
+
+    fn element_mut(&'a mut self, c: Coords) -> Self::Output {
+        construct_from(self.iter_mut().map(|i| i.element_mut(c)))
     }
 }

@@ -8,7 +8,6 @@ pub fn construct_default<T: Default, const S: usize>() -> [T; S] {
 
 pub fn construct_from<T, I: Iterator, const S: usize>(iter: I) -> [T; S]
 where
-    T: Clone,
     I: Iterator<Item = T>,
 {
     let mut buffer = std::mem::MaybeUninit::<T>::uninit_array::<S>();

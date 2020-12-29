@@ -42,24 +42,20 @@ pub struct AdvectionResult {
 pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
     dst: &mut DST,
     totals: &mut TTL,
-    rx: &VEL,
-    ry: &VEL,
-    rz: &VEL,
+    vel: &VEL,
     blockage: &BLK,
     force: f32,
 ) where
     DST: for<'a> Indexable3DMut<'a, Output = &'a mut Option<AdvectionResult>>,
     TTL: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
-    VEL: for<'a> Indexable3D<'a, Output = &'a f32>,
+    VEL: for<'a> Indexable3D<'a, Output = [&'a f32;3]>,
     BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
 {
     // This can easily be threaded as the input array is independent from the
     // output array
     let size = totals.size();
     for c in iterator::iterate(size - coords::ONES) {
-        let vx = *rx.element(c);
-        let vy = *ry.element(c);
-        let vz = *rz.element(c);
+        let [vx, vy, vz] = vel.element(c);
 
         if vx.abs() <= f32::EPSILON && vy.abs() <= f32::EPSILON && vz.abs() <= f32::EPSILON {
             continue;

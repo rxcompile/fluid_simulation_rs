@@ -10,25 +10,27 @@ where
     }
 }
 
-// TODO: accept pack of preasures to calculate correct sum
-pub fn pressuarize<VEL, PR>(wx: &mut VEL, wy: &mut VEL, wz: &mut VEL, pr: &PR, force: f32)
+pub fn pressuarize<VEL, PR, const PR_SIZE: usize>(vel: &mut VEL, pr: &PR, force: f32)
 where
-    VEL: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
-    PR: for<'a> Indexable3D<'a, Output = &'a f32>,
+    VEL: for<'a> Indexable3DMut<'a, Output = [&'a mut f32; 3]>,
+    PR: for<'a> Indexable3D<'a, Output = [&'a f32; PR_SIZE]>,
 {
     let size = pr.size();
+    let sum = |c| pr.element(c).iter().fold(0.0f32, |a, i| a + *i);
     for c in iterator::iterate(size - coords::ONES) {
-        let src_press = *pr.element(c);
-        let force_x = *pr.element(c + coords::X_FORW) - src_press;
-        let force_y = *pr.element(c + coords::Y_FORW) - src_press;
-        let force_z = *pr.element(c + coords::Z_FORW) - src_press;
+        let src_press = sum(c);
+        let force_x = sum(c + coords::X_FORW) - src_press;
+        let force_y = sum(c + coords::Y_FORW) - src_press;
+        let force_z = sum(c + coords::Z_FORW) - src_press;
 
-        *wx.element_mut(c + coords::ZEROS) += force * force_x;
-        *wx.element_mut(c + coords::X_FORW) -= force * force_x;
-        *wy.element_mut(c + coords::ZEROS) += force * force_y;
-        *wy.element_mut(c + coords::Y_FORW) -= force * force_y;
-        *wz.element_mut(c + coords::ZEROS) += force * force_z;
-        *wz.element_mut(c + coords::Z_FORW) -= force * force_z;
+        let vel0 = vel.element_mut(c);
+        *vel0[0] += force * force_x;
+        *vel0[1] += force * force_y;
+        *vel0[2] += force * force_z;
+
+        *vel.element_mut(c + coords::X_FORW)[0] -= force * force_x;
+        *vel.element_mut(c + coords::Y_FORW)[1] -= force * force_y;
+        *vel.element_mut(c + coords::Z_FORW)[2] -= force * force_z;
     }
 }
 
@@ -49,14 +51,9 @@ where
     }
 }
 
-pub fn apply_vortex<VEL, VORT>(
-    wx: &mut VEL,
-    wy: &mut VEL,
-    wz: &mut VEL,
-    vorticies: &VORT,
-    force: f32,
-) where
-    VEL: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+pub fn apply_vortex<VEL, VORT>(vel: &mut VEL, vorticies: &VORT, force: f32)
+where
+    VEL: for<'a> Indexable3DMut<'a, Output = [&'a mut f32; 3]>,
     VORT: for<'a> Indexable3D<'a, Output = &'a f32>,
 {
     let size = vorticies.size();
@@ -68,9 +65,10 @@ pub fn apply_vortex<VEL, VORT>(
         if length > f32::EPSILON {
             let magnitude = *vorticies.element(c) * force / length;
 
-            *wx.element_mut(c) -= ud * magnitude;
-            *wy.element_mut(c) += lr * magnitude;
-            *wz.element_mut(c) += bf * magnitude;
+            let [x, y, z] = vel.element_mut(c);
+            *x -= ud * magnitude;
+            *y += lr * magnitude;
+            *z += bf * magnitude;
         }
     }
 }

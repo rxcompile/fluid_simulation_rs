@@ -1,9 +1,8 @@
 use super::{index, Fillable, Indexable3D, Indexable3DMut, Sizeable3D};
 use crate::Coords;
 
-//TODO: find a way to not pub inner type (see simulation.rs for usage)
 #[derive(Clone)]
-pub struct SizedArray3D<T, const X: usize, const Y: usize, const Z: usize>(pub Vec<T>);
+pub struct SizedArray3D<T, const X: usize, const Y: usize, const Z: usize>(Vec<T>);
 
 impl<T, const X: usize, const Y: usize, const Z: usize> Default for SizedArray3D<T, X, Y, Z>
 where
