@@ -3,8 +3,6 @@ pub mod iterator;
 pub mod sized_array;
 pub mod swapchain;
 
-use std::borrow::{Borrow, BorrowMut};
-
 pub use coords::{Coords, CoordsDiff};
 pub use sized_array::SizedArray3D;
 
@@ -17,16 +15,14 @@ pub trait Sizeable3D {
     fn size(&self) -> Coords;
 }
 
-pub trait Indexable3D: Sizeable3D {
-    type Output<'a>: Borrow<Self::Inner>;
-    type Inner;
-    fn element<'a>(&'a self, c: Coords) -> Self::Output<'a>;
+pub trait Indexable3D<'a>: Sizeable3D {
+    type Output : 'a;
+    fn element(&'a self, c: Coords) -> Self::Output;
 }
 
-pub trait Indexable3DMut: Sizeable3D {
-    type Output<'a>: BorrowMut<Self::Inner>;
-    type Inner;
-    fn element_mut<'a>(&'a mut self, c: Coords) -> Self::Output<'a>;
+pub trait Indexable3DMut<'a>: Sizeable3D {
+    type Output: 'a;
+    fn element_mut(&'a mut self, c: Coords) -> Self::Output;
 }
 
 pub trait Fillable<T> {

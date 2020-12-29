@@ -23,14 +23,3 @@ where
     }
     unsafe { std::mem::transmute_copy(&buffer) }
 }
-
-pub fn construct_fn<T, F, const S: usize>(mut fun: F) -> [T; S]
-where
-    F: FnMut() -> T,
-{
-    let mut t = std::mem::MaybeUninit::<T>::uninit_array::<S>();
-    t.iter_mut().for_each(|i| {
-        i.write(fun());
-    });
-    unsafe { std::mem::transmute_copy(&t) }
-}

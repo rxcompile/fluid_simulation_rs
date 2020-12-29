@@ -1,28 +1,29 @@
-use std::borrow::{Borrow, BorrowMut};
-
 use crate::{
     data::flow::FlowFlags,
     math::{iterator, Coords, Indexable3D, Indexable3DMut},
 };
 
-pub fn diffusion_step(
-    dst: &mut impl Indexable3DMut<Inner = f32>,
-    src: &impl Indexable3D<Inner = f32>,
-    blockage: &impl Indexable3D<Inner = FlowFlags>,
-    force: f32,
-) {
+pub fn diffusion_step<DST, SRC, BLK>(dst: &mut DST, src: &SRC, blockage: &BLK, force: f32)
+where
+    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
+    BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
+{
     for c in iterator::iterate(src.size()) {
-        diffusion_transfer(dst, src, blockage.element(c).borrow(), c, force);
+        diffusion_transfer(dst, src, blockage.element(c), c, force);
     }
 }
 
-fn diffusion_transfer(
-    dst: &mut impl Indexable3DMut<Inner = f32>,
-    src: &impl Indexable3D<Inner = f32>,
+fn diffusion_transfer<DST, SRC>(
+    dst: &mut DST,
+    src: &SRC,
     blk: &FlowFlags,
     coords: Coords,
     force: f32,
-) {
+) where
+    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
+{
     let size = src.size();
     let add = |x: usize, s: usize| {
         let res = x.checked_add(1);
@@ -66,7 +67,7 @@ fn diffusion_transfer(
                 return None;
             }
             if let (Some(nx), Some(ny), Some(nz)) = *nc {
-                return Some(src.element((nx, ny, nz).into()).borrow().clone());
+                return Some(src.element((nx, ny, nz).into()).clone());
             }
             None
         })
@@ -74,6 +75,6 @@ fn diffusion_transfer(
     let (sum, count) = vals
         .iter()
         .fold((0.0, 0.0), |acc, v| (acc.0 + v, acc.1 + 1.0));
-    let val = src.element(coords).borrow().clone();
-    *dst.element_mut(coords).borrow_mut() = val + force * (sum - count * val);
+    let val = src.element(coords).clone();
+    *dst.element_mut(coords) = val + force * (sum - count * val);
 }

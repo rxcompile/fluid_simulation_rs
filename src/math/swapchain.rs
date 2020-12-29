@@ -62,26 +62,24 @@ where
     }
 }
 
-impl<T, const SIZE: usize> Indexable3D for Swapchain<T, SIZE>
+impl<'a, T, const SIZE: usize> Indexable3D<'a> for Swapchain<T, SIZE>
 where
-    T: Indexable3D,
+    T: Indexable3D<'a>,
 {
-    type Output<'a> = T::Output<'a>;
-    type Inner = T::Inner;
+    type Output = T::Output;
 
-    fn element<'a>(&'a self, c: Coords) -> Self::Output<'a> {
+    fn element(&'a self, c: Coords) -> Self::Output {
         self.read().element(c)
     }
 }
 
-impl<T, const SIZE: usize> Indexable3DMut for Swapchain<T, SIZE>
+impl<'a, T, const SIZE: usize> Indexable3DMut<'a> for Swapchain<T, SIZE>
 where
-    T: Indexable3DMut,
+    T: Indexable3DMut<'a>,
 {
-    type Output<'a> = T::Output<'a>;
-    type Inner = T::Inner;
+    type Output = T::Output;
 
-    fn element_mut<'a>(&'a mut self, c: Coords) -> Self::Output<'a> {
+    fn element_mut(&'a mut self, c: Coords) -> Self::Output {
         self.write().element_mut(c)
     }
 }

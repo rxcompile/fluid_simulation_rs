@@ -1,6 +1,4 @@
-#![allow(incomplete_features)]
 #![feature(maybe_uninit_uninit_array, maybe_uninit_extra)]
-#![feature(generic_associated_types)]
 
 mod algorithm;
 mod data;

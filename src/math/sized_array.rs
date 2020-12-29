@@ -20,26 +20,24 @@ impl<T, const X: usize, const Y: usize, const Z: usize> Sizeable3D for SizedArra
     }
 }
 
-impl<T, const X: usize, const Y: usize, const Z: usize> Indexable3D for SizedArray3D<T, X, Y, Z>
+impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3D<'a> for SizedArray3D<T, X, Y, Z>
 where
     T: 'static,
 {
-    type Output<'a> = &'a T;
-    type Inner = T;
+    type Output = &'a T;
 
-    fn element<'a>(&'a self, c: Coords) -> Self::Output<'a> {
+    fn element(&'a self, c: Coords) -> Self::Output {
         &self.0[index(c.0, c.1, c.2, X, Y, Z)]
     }
 }
 
-impl<T, const X: usize, const Y: usize, const Z: usize> Indexable3DMut for SizedArray3D<T, X, Y, Z>
+impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3DMut<'a> for SizedArray3D<T, X, Y, Z>
 where
     T: 'static,
 {
-    type Output<'a> = &'a mut T;
-    type Inner = T;
+    type Output = &'a mut T;
 
-    fn element_mut<'a>(&'a mut self, c: Coords) -> Self::Output<'a> {
+    fn element_mut(&'a mut self, c: Coords) -> Self::Output {
         &mut self.0[index(c.0, c.1, c.2, X, Y, Z)]
     }
 }
