@@ -1,6 +1,8 @@
+use std::borrow::{Borrow, BorrowMut};
+
 use crate::{
-    domain::fluid::FlowFlags,
-    math::{self, Array3D, Coords, CoordsDiff, Indexable3D, ONES},
+    data::flow::FlowFlags,
+    math::{coords, iterator, Coords, CoordsDiff, Indexable3D, Indexable3DMut},
 };
 
 const DIFF_TABLE: [CoordsDiff; 8] = [
@@ -38,26 +40,28 @@ pub struct AdvectionResult {
     new_position: Coords,
     is_hit_boundary: bool,
 }
-pub type AdvectionCoefficients = Array3D<Option<AdvectionResult>>;
 
-pub fn generate_advection_coefficients(
-    dst: &mut AdvectionCoefficients,
-    totals: &mut Array3D<f32>,
-    vx: &Array3D<f32>,
-    vy: &Array3D<f32>,
-    vz: &Array3D<f32>,
-    blockage: &Array3D<FlowFlags>,
+pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
+    dst: &mut DST,
+    totals: &mut TTL,
+    rx: &VEL,
+    ry: &VEL,
+    rz: &VEL,
+    blockage: &BLK,
     force: f32,
-) {
-    // cleanup totals from previous calculations
-    totals.fill(0.0);
+) where
+    DST: Indexable3DMut<Inner = Option<AdvectionResult>>,
+    TTL: Indexable3DMut<Inner = f32>,
+    VEL: Indexable3D<Inner = f32>,
+    BLK: Indexable3D<Inner = FlowFlags>,
+{
     // This can easily be threaded as the input array is independent from the
     // output array
-    let size = dst.size();
-    for c in math::iterate(size - ONES) {
-        let vx = *vx.element(c);
-        let vy = *vy.element(c);
-        let vz = *vz.element(c);
+    let size = totals.size();
+    for c in iterator::iterate(size - coords::ONES) {
+        let vx = *rx.element(c).borrow();
+        let vy = *ry.element(c).borrow();
+        let vz = *rz.element(c).borrow();
 
         if vx.abs() <= f32::EPSILON && vy.abs() <= f32::EPSILON && vz.abs() <= f32::EPSILON {
             continue;
@@ -71,7 +75,7 @@ pub fn generate_advection_coefficients(
         );
 
         // Check for and correct boundary collisions
-        let is_collided = collide(&mut new, c, blockage.element(c));
+        let is_collided = collide(&mut new, c, blockage.element(c).borrow());
 
         // Find the nearest top-left integer grid point of the advection
         // x, y, z locations of top-left-back grid point (A) after advection
@@ -144,31 +148,71 @@ pub fn generate_advection_coefficients(
         };
 
         // Accumulating the total value for the four destinations
-        *totals.element_mut(result.new_position + DIFF_TABLE[0]) += result.a;
-        *totals.element_mut(result.new_position + DIFF_TABLE[1]) += result.b;
-        *totals.element_mut(result.new_position + DIFF_TABLE[2]) += result.c;
-        *totals.element_mut(result.new_position + DIFF_TABLE[3]) += result.d;
-        *totals.element_mut(result.new_position + DIFF_TABLE[4]) += result.e;
-        *totals.element_mut(result.new_position + DIFF_TABLE[5]) += result.f;
-        *totals.element_mut(result.new_position + DIFF_TABLE[6]) += result.g;
-        *totals.element_mut(result.new_position + DIFF_TABLE[7]) += result.h;
-        *dst.element_mut(c) = Some(result);
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[0])
+            .borrow_mut() += result.a;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[1])
+            .borrow_mut() += result.b;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[2])
+            .borrow_mut() += result.c;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[3])
+            .borrow_mut() += result.d;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[4])
+            .borrow_mut() += result.e;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[5])
+            .borrow_mut() += result.f;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[6])
+            .borrow_mut() += result.g;
+        *totals
+            .element_mut(result.new_position + DIFF_TABLE[7])
+            .borrow_mut() += result.h;
+        *dst.element_mut(c).borrow_mut() = Some(result);
     }
 
     // Normalize values
-    for c in math::iterate(size) {
-        if let Some(k) = dst.element_mut(c) {
+    for c in iterator::iterate(size) {
+        if let Some(k) = dst.element_mut(c).borrow_mut() {
             // Get the TOTAL fraction requested from each source cell
             // If less then 1.0 in total then no scaling is necessary
             // Scale the amount we are transferring
-            k.a /= totals.element_mut(k.new_position + DIFF_TABLE[0]).max(1.0);
-            k.b /= totals.element_mut(k.new_position + DIFF_TABLE[1]).max(1.0);
-            k.c /= totals.element_mut(k.new_position + DIFF_TABLE[2]).max(1.0);
-            k.d /= totals.element_mut(k.new_position + DIFF_TABLE[3]).max(1.0);
-            k.e /= totals.element_mut(k.new_position + DIFF_TABLE[4]).max(1.0);
-            k.f /= totals.element_mut(k.new_position + DIFF_TABLE[5]).max(1.0);
-            k.g /= totals.element_mut(k.new_position + DIFF_TABLE[6]).max(1.0);
-            k.h /= totals.element_mut(k.new_position + DIFF_TABLE[7]).max(1.0);
+            k.a /= totals
+                .element_mut(k.new_position + DIFF_TABLE[0])
+                .borrow_mut()
+                .max(1.0);
+            k.b /= totals
+                .element_mut(k.new_position + DIFF_TABLE[1])
+                .borrow_mut()
+                .max(1.0);
+            k.c /= totals
+                .element_mut(k.new_position + DIFF_TABLE[2])
+                .borrow_mut()
+                .max(1.0);
+            k.d /= totals
+                .element_mut(k.new_position + DIFF_TABLE[3])
+                .borrow_mut()
+                .max(1.0);
+            k.e /= totals
+                .element_mut(k.new_position + DIFF_TABLE[4])
+                .borrow_mut()
+                .max(1.0);
+            k.f /= totals
+                .element_mut(k.new_position + DIFF_TABLE[5])
+                .borrow_mut()
+                .max(1.0);
+            k.g /= totals
+                .element_mut(k.new_position + DIFF_TABLE[6])
+                .borrow_mut()
+                .max(1.0);
+            k.h /= totals
+                .element_mut(k.new_position + DIFF_TABLE[7])
+                .borrow_mut()
+                .max(1.0);
         }
     }
 }
@@ -213,66 +257,69 @@ fn collide(new: &mut (f32, f32, f32), c: Coords, blockage: &FlowFlags) -> bool {
     return collided;
 }
 
-pub fn forward_advection(
-    dst: &mut Array3D<f32>,
-    src: &Array3D<f32>,
-    coefficients: &AdvectionCoefficients,
-) {
-    let size = dst.size();
-    for c in math::iterate(size) {
-        if let Some(v) = coefficients.element(c) {
+pub fn forward_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
+where
+    DST: Indexable3DMut<Inner = f32>,
+    SRC: Indexable3D<Inner = f32>,
+    COEF: Indexable3D<Inner = Option<AdvectionResult>>,
+{
+    let size = src.size();
+    for c in iterator::iterate(size) {
+        if let Some(v) = coefficients.element(c).borrow() {
             let mut res = v.clone();
-            res.a *= *src.element(c + DIFF_TABLE[0]);
-            res.b *= *src.element(c + DIFF_TABLE[1]);
-            res.c *= *src.element(c + DIFF_TABLE[2]);
-            res.d *= *src.element(c + DIFF_TABLE[3]);
-            res.e *= *src.element(c + DIFF_TABLE[4]);
-            res.f *= *src.element(c + DIFF_TABLE[5]);
-            res.g *= *src.element(c + DIFF_TABLE[6]);
-            res.h *= *src.element(c + DIFF_TABLE[7]);
+            res.a *= *src.element(c + DIFF_TABLE[0]).borrow();
+            res.b *= *src.element(c + DIFF_TABLE[1]).borrow();
+            res.c *= *src.element(c + DIFF_TABLE[2]).borrow();
+            res.d *= *src.element(c + DIFF_TABLE[3]).borrow();
+            res.e *= *src.element(c + DIFF_TABLE[4]).borrow();
+            res.f *= *src.element(c + DIFF_TABLE[5]).borrow();
+            res.g *= *src.element(c + DIFF_TABLE[6]).borrow();
+            res.h *= *src.element(c + DIFF_TABLE[7]).borrow();
 
-            *dst.element_mut(c) -= res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
+            *dst.element_mut(c).borrow_mut() -=
+                res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
 
-            *dst.element_mut(res.new_position + DIFF_TABLE[0]) += res.a;
-            *dst.element_mut(res.new_position + DIFF_TABLE[1]) += res.b;
-            *dst.element_mut(res.new_position + DIFF_TABLE[2]) += res.c;
-            *dst.element_mut(res.new_position + DIFF_TABLE[3]) += res.d;
-            *dst.element_mut(res.new_position + DIFF_TABLE[4]) += res.e;
-            *dst.element_mut(res.new_position + DIFF_TABLE[5]) += res.f;
-            *dst.element_mut(res.new_position + DIFF_TABLE[6]) += res.g;
-            *dst.element_mut(res.new_position + DIFF_TABLE[7]) += res.h;
+            *dst.element_mut(res.new_position + DIFF_TABLE[0]).borrow_mut() += res.a;
+            *dst.element_mut(res.new_position + DIFF_TABLE[1]).borrow_mut() += res.b;
+            *dst.element_mut(res.new_position + DIFF_TABLE[2]).borrow_mut() += res.c;
+            *dst.element_mut(res.new_position + DIFF_TABLE[3]).borrow_mut() += res.d;
+            *dst.element_mut(res.new_position + DIFF_TABLE[4]).borrow_mut() += res.e;
+            *dst.element_mut(res.new_position + DIFF_TABLE[5]).borrow_mut() += res.f;
+            *dst.element_mut(res.new_position + DIFF_TABLE[6]).borrow_mut() += res.g;
+            *dst.element_mut(res.new_position + DIFF_TABLE[7]).borrow_mut() += res.h;
         }
     }
 }
 
-pub fn reverse_advection(
-    dst: &mut Array3D<f32>,
-    src: &Array3D<f32>,
-    coefficients: &AdvectionCoefficients,
-) {
-    let size = dst.size();
-    for c in math::iterate(size) {
-        if let Some(v) = coefficients.element(c) {
+pub fn reverse_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
+where
+    DST: Indexable3DMut<Inner = f32>,
+    SRC: Indexable3D<Inner = f32>,
+    COEF: Indexable3D<Inner = Option<AdvectionResult>>,
+{
+    let size = src.size();
+    for c in iterator::iterate(size) {
+        if let Some(v) = coefficients.element(c).borrow() {
             let mut res = v.clone();
-            res.a *= *src.element(c + DIFF_TABLE[0]);
-            res.b *= *src.element(c + DIFF_TABLE[1]);
-            res.c *= *src.element(c + DIFF_TABLE[2]);
-            res.d *= *src.element(c + DIFF_TABLE[3]);
-            res.e *= *src.element(c + DIFF_TABLE[4]);
-            res.f *= *src.element(c + DIFF_TABLE[5]);
-            res.g *= *src.element(c + DIFF_TABLE[6]);
-            res.h *= *src.element(c + DIFF_TABLE[7]);
+            res.a *= *src.element(c + DIFF_TABLE[0]).borrow();
+            res.b *= *src.element(c + DIFF_TABLE[1]).borrow();
+            res.c *= *src.element(c + DIFF_TABLE[2]).borrow();
+            res.d *= *src.element(c + DIFF_TABLE[3]).borrow();
+            res.e *= *src.element(c + DIFF_TABLE[4]).borrow();
+            res.f *= *src.element(c + DIFF_TABLE[5]).borrow();
+            res.g *= *src.element(c + DIFF_TABLE[6]).borrow();
+            res.h *= *src.element(c + DIFF_TABLE[7]).borrow();
 
-            *dst.element_mut(c) += res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
+            *dst.element_mut(c).borrow_mut() += res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
 
-            *dst.element_mut(res.new_position + DIFF_TABLE[0]) -= res.a;
-            *dst.element_mut(res.new_position + DIFF_TABLE[1]) -= res.b;
-            *dst.element_mut(res.new_position + DIFF_TABLE[2]) -= res.c;
-            *dst.element_mut(res.new_position + DIFF_TABLE[3]) -= res.d;
-            *dst.element_mut(res.new_position + DIFF_TABLE[4]) -= res.e;
-            *dst.element_mut(res.new_position + DIFF_TABLE[5]) -= res.f;
-            *dst.element_mut(res.new_position + DIFF_TABLE[6]) -= res.g;
-            *dst.element_mut(res.new_position + DIFF_TABLE[7]) -= res.h;
+            *dst.element_mut(res.new_position + DIFF_TABLE[0]).borrow_mut() -= res.a;
+            *dst.element_mut(res.new_position + DIFF_TABLE[1]).borrow_mut() -= res.b;
+            *dst.element_mut(res.new_position + DIFF_TABLE[2]).borrow_mut() -= res.c;
+            *dst.element_mut(res.new_position + DIFF_TABLE[3]).borrow_mut() -= res.d;
+            *dst.element_mut(res.new_position + DIFF_TABLE[4]).borrow_mut() -= res.e;
+            *dst.element_mut(res.new_position + DIFF_TABLE[5]).borrow_mut() -= res.f;
+            *dst.element_mut(res.new_position + DIFF_TABLE[6]).borrow_mut() -= res.g;
+            *dst.element_mut(res.new_position + DIFF_TABLE[7]).borrow_mut() -= res.h;
         }
     }
 }

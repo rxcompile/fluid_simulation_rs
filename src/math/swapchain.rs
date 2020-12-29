@@ -1,9 +1,10 @@
-use std::convert::TryInto;
+use crate::math::{Coords, Indexable3D, Indexable3DMut};
+use std::mem::MaybeUninit;
 
-use crate::math::{Array3D, Coords, Indexable3D, SizeCreatable};
+use super::Sizeable3D;
 
 pub trait Swapable {
-    fn swap(&mut self);
+    fn swap_buffers(&mut self);
     fn copy_from_read(&mut self);
 }
 
@@ -11,6 +12,22 @@ pub trait Swapable {
 pub struct Swapchain<T, const SIZE: usize> {
     pub data: [T; SIZE],
     pub current: usize,
+}
+
+impl<T, const SIZE: usize> Default for Swapchain<T, SIZE>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        let mut tmp = MaybeUninit::<T>::uninit_array::<SIZE>();
+        for v in tmp.iter_mut() {
+            v.write(Default::default());
+        }
+        Self {
+            data: unsafe { std::mem::transmute_copy(&tmp) },
+            current: 0,
+        }
+    }
 }
 
 impl<T, const SIZE: usize> Swapchain<T, SIZE> {
@@ -22,7 +39,7 @@ impl<T, const SIZE: usize> Swapchain<T, SIZE> {
         &mut self.data[(self.current + 1) % SIZE]
     }
 
-    pub fn rw_pair(&mut self) -> (&T, &mut T) {
+    pub fn rw_pair<'a>(&'a mut self) -> (&'a T, &'a mut T) {
         let w_idx = (self.current + 1) % SIZE;
         let r_idx = self.current;
         assert_ne!(w_idx, r_idx);
@@ -36,17 +53,36 @@ impl<T, const SIZE: usize> Swapchain<T, SIZE> {
     }
 }
 
-impl<T, const SIZE: usize> Indexable3D<T> for Swapchain<Array3D<T>, SIZE> {
-    fn element(&self, c: Coords) -> &T {
-        self.read().element(c)
-    }
-
-    fn element_mut(&mut self, c: Coords) -> &mut T {
-        self.write().element_mut(c)
-    }
-
+impl<T, const SIZE: usize> Sizeable3D for Swapchain<T, SIZE>
+where
+    T: Sizeable3D,
+{
     fn size(&self) -> Coords {
         self.read().size()
+    }
+}
+
+impl<T, const SIZE: usize> Indexable3D for Swapchain<T, SIZE>
+where
+    T: Indexable3D,
+{
+    type Output<'a> = T::Output<'a>;
+    type Inner = T::Inner;
+
+    fn element<'a>(&'a self, c: Coords) -> Self::Output<'a> {
+        self.read().element(c)
+    }
+}
+
+impl<T, const SIZE: usize> Indexable3DMut for Swapchain<T, SIZE>
+where
+    T: Indexable3DMut,
+{
+    type Output<'a> = T::Output<'a>;
+    type Inner = T::Inner;
+
+    fn element_mut<'a>(&'a mut self, c: Coords) -> Self::Output<'a> {
+        self.write().element_mut(c)
     }
 }
 
@@ -54,7 +90,7 @@ impl<T, const SIZE: usize> Swapable for Swapchain<T, SIZE>
 where
     T: std::clone::Clone,
 {
-    fn swap(&mut self) {
+    fn swap_buffers(&mut self) {
         self.current = (self.current + 1) % SIZE
     }
 
@@ -64,43 +100,19 @@ where
     }
 }
 
-impl<T, const SIZE: usize> SizeCreatable for Swapchain<Array3D<T>, SIZE>
-where
-    T: std::clone::Clone + std::default::Default + std::fmt::Debug,
-{
-    fn new(size: Coords) -> Self {
-        // TODO: this heap allocation is bs, but cant do much about it without unsafe
-        Self {
-            data: vec![Array3D::new(size); SIZE].try_into().unwrap(),
-            current: 0,
-        }
-    }
-}
-
 pub type SwapchainPack<T, const PACK_SIZE: usize, const SW_SIZE: usize> =
     [Swapchain<T, SW_SIZE>; PACK_SIZE];
 
 impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> Swapable
-    for SwapchainPack<Array3D<T>, PACK_SIZE, SW_SIZE>
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
 where
     T: std::clone::Clone,
 {
-    fn swap(&mut self) {
-        self.iter_mut().for_each(|x| x.swap())
+    fn swap_buffers(&mut self) {
+        self.iter_mut().for_each(|x| x.swap_buffers())
     }
 
     fn copy_from_read(&mut self) {
         self.iter_mut().for_each(|x| x.copy_from_read())
-    }
-}
-
-impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> SizeCreatable
-    for SwapchainPack<Array3D<T>, PACK_SIZE, SW_SIZE>
-where
-    T: std::clone::Clone + std::default::Default + std::fmt::Debug,
-{
-    fn new(size: Coords) -> Self {
-        // TODO: this heap allocation is bs, but cant do much about it without unsafe
-        vec![Swapchain::new(size); PACK_SIZE].try_into().unwrap()
     }
 }

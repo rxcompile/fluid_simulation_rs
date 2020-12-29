@@ -1,28 +1,29 @@
+use std::borrow::{Borrow, BorrowMut};
+
 use crate::{
-    domain::fluid::FlowFlags,
-    math::{self, Array3D, Coords, Indexable3D},
+    data::flow::FlowFlags,
+    math::{iterator, Coords, Indexable3D, Indexable3DMut},
 };
 
 pub fn diffusion_step(
-    dst: &mut Array3D<f32>,
-    src: &Array3D<f32>,
-    blockage: &Array3D<FlowFlags>,
+    dst: &mut impl Indexable3DMut<Inner = f32>,
+    src: &impl Indexable3D<Inner = f32>,
+    blockage: &impl Indexable3D<Inner = FlowFlags>,
     force: f32,
 ) {
-    for c in math::iterate(dst.size()) {
-        let blk = *blockage.element(c);
-        diffusion_transfer(dst, src, blk, c, force);
+    for c in iterator::iterate(src.size()) {
+        diffusion_transfer(dst, src, blockage.element(c).borrow(), c, force);
     }
 }
 
 fn diffusion_transfer(
-    dst: &mut Array3D<f32>,
-    src: &Array3D<f32>,
-    blk: FlowFlags,
+    dst: &mut impl Indexable3DMut<Inner = f32>,
+    src: &impl Indexable3D<Inner = f32>,
+    blk: &FlowFlags,
     coords: Coords,
     force: f32,
 ) {
-    let size = dst.size();
+    let size = src.size();
     let add = |x: usize, s: usize| {
         let res = x.checked_add(1);
         if res.unwrap_or(s) < s {
@@ -31,6 +32,7 @@ fn diffusion_transfer(
             None
         }
     };
+    let sub = |x: usize, _: usize| x.checked_sub(1);
     let dir_map = [
         (
             FlowFlags::X_FORW,
@@ -38,7 +40,7 @@ fn diffusion_transfer(
         ),
         (
             FlowFlags::X_BACK,
-            (coords.0.checked_sub(1), Some(coords.1), Some(coords.2)),
+            (sub(coords.0, size.0), Some(coords.1), Some(coords.2)),
         ),
         (
             FlowFlags::Y_FORW,
@@ -46,7 +48,7 @@ fn diffusion_transfer(
         ),
         (
             FlowFlags::Y_BACK,
-            (Some(coords.0), coords.1.checked_sub(1), Some(coords.2)),
+            (Some(coords.0), sub(coords.1, size.1), Some(coords.2)),
         ),
         (
             FlowFlags::Z_FORW,
@@ -54,7 +56,7 @@ fn diffusion_transfer(
         ),
         (
             FlowFlags::Z_BACK,
-            (Some(coords.0), Some(coords.1), coords.2.checked_sub(1)),
+            (Some(coords.0), Some(coords.1), sub(coords.2, size.2)),
         ),
     ];
     let vals: Vec<_> = dir_map
@@ -64,7 +66,7 @@ fn diffusion_transfer(
                 return None;
             }
             if let (Some(nx), Some(ny), Some(nz)) = *nc {
-                return Some(*src.element((nx, ny, nz).into()));
+                return Some(src.element((nx, ny, nz).into()).borrow().clone());
             }
             None
         })
@@ -72,6 +74,6 @@ fn diffusion_transfer(
     let (sum, count) = vals
         .iter()
         .fold((0.0, 0.0), |acc, v| (acc.0 + v, acc.1 + 1.0));
-    let val = *src.element(coords);
-    *dst.element_mut(coords) = val + force * (sum - count * val);
+    let val = src.element(coords).borrow().clone();
+    *dst.element_mut(coords).borrow_mut() = val + force * (sum - count * val);
 }

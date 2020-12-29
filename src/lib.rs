@@ -1,17 +1,19 @@
-#![feature(min_const_generics)]
-#![feature(slice_fill)]
+#![allow(incomplete_features)]
+#![feature(maybe_uninit_uninit_array, maybe_uninit_extra)]
+#![feature(generic_associated_types)]
+
 mod algorithm;
-mod domain;
+mod data;
 mod math;
+mod support_utils;
 
-pub use domain::Domain;
-pub use domain::DomainProperties;
-pub use domain::PackProperties;
-pub use domain::fluid::FlowFlags;
+pub use data::domain::Domain;
+pub use data::flow::FlowFlags;
+pub use data::properties::DomainProperties;
+pub use data::properties::PackProperties;
+pub use math::swapchain::Swapchain;
 pub use math::Coords;
-
-// usefull aliases
-pub type DomainDefault = domain::Domain<2>;
+pub use math::Indexable3D;
 
 #[macro_use]
 extern crate bitflags;
