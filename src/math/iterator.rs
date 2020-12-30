@@ -5,30 +5,10 @@ pub fn iterate(size: Coords) -> impl std::iter::Iterator<Item = Coords> {
 }
 
 pub fn iterate_range(first: Coords, size: Coords) -> impl std::iter::Iterator<Item = Coords> {
-    let mut iter = first;
-    let mut start = true;
-    std::iter::from_fn(move || {
-        if start {
-            if iter.0 >= size.0 || iter.1 >= size.1 || iter.2 >= size.2 {
-                return None;
-            }
-            start = false;
-            return Some(iter);
-        }
-        iter.0 += 1;
-        if iter.0 >= size.0 {
-            iter.0 = first.0;
-            iter.1 += 1;
-            if iter.1 >= size.1 {
-                iter.1 = first.1;
-                iter.2 += 1;
-                if iter.2 >= size.2 {
-                    return None;
-                }
-            }
-        }
-        Some(iter)
-    })
+    (first.2..size.2)
+        .flat_map(move |z| (first.1..size.1).zip(std::iter::from_fn(move || Some(z))))
+        .flat_map(move |yz| (first.0..size.0).zip(std::iter::from_fn(move || Some(yz))))
+        .map(|(x, (y, z))| Coords(x, y, z))
 }
 
 #[test]

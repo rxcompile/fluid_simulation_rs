@@ -19,7 +19,8 @@ impl<T, const X: usize, const Y: usize, const Z: usize> Sizeable3D for SizedArra
     }
 }
 
-impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3D<'a> for SizedArray3D<T, X, Y, Z>
+impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3D<'a>
+    for SizedArray3D<T, X, Y, Z>
 where
     T: 'static,
 {
@@ -30,7 +31,8 @@ where
     }
 }
 
-impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3DMut<'a> for SizedArray3D<T, X, Y, Z>
+impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3DMut<'a>
+    for SizedArray3D<T, X, Y, Z>
 where
     T: 'static,
 {

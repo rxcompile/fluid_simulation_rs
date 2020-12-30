@@ -48,7 +48,7 @@ pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
 ) where
     DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut Option<AdvectionResult>>,
     TTL: for<'a> Indexable3DMut<'a, Output = &'a f32, OutputMut = &'a mut f32>,
-    VEL: for<'a> Indexable3D<'a, Output = [&'a f32;3]>,
+    VEL: for<'a> Indexable3D<'a, Output = [&'a f32; 3]>,
     BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
 {
     // This can easily be threaded as the input array is independent from the

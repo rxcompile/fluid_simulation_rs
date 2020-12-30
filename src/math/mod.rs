@@ -16,7 +16,7 @@ pub trait Sizeable3D {
 }
 
 pub trait Indexable3D<'a>: Sizeable3D {
-    type Output : 'a;
+    type Output: 'a;
     fn element(&'a self, c: Coords) -> Self::Output;
 }
 

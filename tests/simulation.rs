@@ -1,4 +1,4 @@
-use fluid_simulation::{Coords, Domain, Sizeable3D, iterator};
+use fluid_simulation::{iterator, Coords, Domain, Sizeable3D};
 
 #[test]
 fn diffusion_stability() {
