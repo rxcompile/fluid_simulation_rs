@@ -5,13 +5,10 @@ mod data;
 mod math;
 mod support_utils;
 
-pub use data::domain::Domain;
-pub use data::flow::FlowFlags;
-pub use data::properties::DomainProperties;
-pub use data::properties::PackProperties;
+pub use data::properties::{DomainProperties, PackProperties};
+pub use data::{domain::Domain, flow::FlowFlags};
 pub use math::swapchain::Swapchain;
-pub use math::Coords;
-pub use math::Indexable3D;
+pub use math::{iterator, Coords, Indexable3D, Indexable3DMut, Sizeable3D};
 
 #[macro_use]
 extern crate bitflags;

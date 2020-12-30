@@ -1,7 +1,7 @@
 use crate::{
     algorithm::{advection, diffusion, forces},
     data::runtime::{DomainRuntime, DomainTemp},
-    math::{swapchain::Swapable, Fillable, Indexable3D, Indexable3DMut},
+    math::{swapchain::Swapable, Fillable, Indexable3D, Indexable3DMut, Sizeable3D},
     support_utils, Coords, DomainProperties,
 };
 
@@ -10,6 +10,14 @@ pub struct Domain<const P_SIZE: usize, const X: usize, const Y: usize, const Z: 
     pub data: DomainRuntime<P_SIZE, X, Y, Z>,
     temp: DomainTemp<X, Y, Z>,
     pub prop: DomainProperties,
+}
+
+impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Sizeable3D
+    for Domain<P_SIZE, X, Y, Z>
+{
+    fn size(&self) -> Coords {
+        Coords(X, Y, Z)
+    }
 }
 
 impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain<P_SIZE, X, Y, Z> {
@@ -59,7 +67,12 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
         let force = self.prop.pressure_props.diffusion;
         for _ in 0..self.prop.diffusion_steps {
             for (src, dst) in self.data.pressure.iter_mut().map(|i| i.rw_pair()) {
-                diffusion::diffusion_step(dst, src, &self.data.blockage, force);
+                diffusion::diffusion_step(
+                    dst,
+                    src,
+                    &self.data.blockage,
+                    force / self.prop.diffusion_steps as f32,
+                );
             }
             // swapchain
             self.data.pressure.swap_buffers();
@@ -78,11 +91,7 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
         if let Some(pressure_acceleration) = self.prop.pressure_acceleration {
             self.data.velocity.copy_from_read();
             let force = pressure_acceleration * self.prop.step_delta_time;
-            forces::pressuarize(
-                &mut self.data.velocity,
-                &self.data.pressure,
-                force,
-            );
+            forces::pressuarize(&mut self.data.velocity, &self.data.pressure, force);
             // swapchain
             self.data.velocity.swap_buffers();
         }
@@ -96,11 +105,7 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
                 self.data.velocity[1].read(),
                 self.data.velocity[2].read(),
             );
-            forces::apply_vortex(
-                &mut self.data.velocity,
-                &self.temp.vorticies,
-                force,
-            );
+            forces::apply_vortex(&mut self.data.velocity, &self.temp.vorticies, force);
             // swapchain
             self.data.velocity.swap_buffers();
         }

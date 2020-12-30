@@ -9,19 +9,13 @@ where
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
     BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
 {
-    for c in iterator::iterate(src.size()) {
-        diffusion_transfer(dst, src, blockage.element(c), c, force);
+    for c in iterator::iterate(dst.size()) {
+        diffusion_transfer(dst.element_mut(c), src, blockage.element(c), c, force);
     }
 }
 
-fn diffusion_transfer<DST, SRC>(
-    dst: &mut DST,
-    src: &SRC,
-    blk: &FlowFlags,
-    coords: Coords,
-    force: f32,
-) where
-    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
+fn diffusion_transfer<SRC>(dst: &mut f32, src: &SRC, blk: &FlowFlags, coords: Coords, force: f32)
+where
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
 {
     let size = src.size();
@@ -60,21 +54,18 @@ fn diffusion_transfer<DST, SRC>(
             (Some(coords.0), Some(coords.1), sub(coords.2, size.2)),
         ),
     ];
-    let vals: Vec<_> = dir_map
+    let (sum, count) = dir_map
         .iter()
         .filter_map(|(dir, nc)| {
             if blk.contains(*dir) {
                 return None;
             }
             if let (Some(nx), Some(ny), Some(nz)) = *nc {
-                return Some(src.element((nx, ny, nz).into()).clone());
+                return Some(*src.element((nx, ny, nz).into()));
             }
             None
         })
-        .collect();
-    let (sum, count) = vals
-        .iter()
         .fold((0.0, 0.0), |acc, v| (acc.0 + v, acc.1 + 1.0));
-    let val = src.element(coords).clone();
-    *dst.element_mut(coords) = val + force * (sum - count * val);
+    let val = *src.element(coords);
+    *dst = val + force * (sum - count * val);
 }
