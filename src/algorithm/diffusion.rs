@@ -5,7 +5,7 @@ use crate::{
 
 pub fn diffusion_step<DST, SRC, BLK>(dst: &mut DST, src: &SRC, blockage: &BLK, force: f32)
 where
-    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
     BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
 {
@@ -21,7 +21,7 @@ fn diffusion_transfer<DST, SRC>(
     coords: Coords,
     force: f32,
 ) where
-    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
 {
     let size = src.size();

@@ -2,7 +2,7 @@ use crate::math::{coords, iterator, Indexable3D, Indexable3DMut};
 
 pub fn decay_velocity<DST, SRC>(dst: &mut DST, src: &SRC, coefficient: f32)
 where
-    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
 {
     for c in iterator::iterate(src.size()) {
@@ -12,7 +12,7 @@ where
 
 pub fn pressuarize<VEL, PR, const PR_SIZE: usize>(vel: &mut VEL, pr: &PR, force: f32)
 where
-    VEL: for<'a> Indexable3DMut<'a, Output = [&'a mut f32; 3]>,
+    VEL: for<'a> Indexable3DMut<'a, OutputMut = [&'a mut f32; 3]>,
     PR: for<'a> Indexable3D<'a, Output = [&'a f32; PR_SIZE]>,
 {
     let size = pr.size();
@@ -36,7 +36,7 @@ where
 
 pub fn generate_vortexes<VORT, VEL>(vorticies: &mut VORT, rx: &VEL, ry: &VEL, rz: &VEL)
 where
-    VORT: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    VORT: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
     VEL: for<'a> Indexable3D<'a, Output = &'a f32>,
 {
     let size = vorticies.size();
@@ -53,7 +53,7 @@ where
 
 pub fn apply_vortex<VEL, VORT>(vel: &mut VEL, vorticies: &VORT, force: f32)
 where
-    VEL: for<'a> Indexable3DMut<'a, Output = [&'a mut f32; 3]>,
+    VEL: for<'a> Indexable3DMut<'a, OutputMut = [&'a mut f32; 3]>,
     VORT: for<'a> Indexable3D<'a, Output = &'a f32>,
 {
     let size = vorticies.size();

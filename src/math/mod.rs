@@ -20,9 +20,9 @@ pub trait Indexable3D<'a>: Sizeable3D {
     fn element(&'a self, c: Coords) -> Self::Output;
 }
 
-pub trait Indexable3DMut<'a>: Sizeable3D {
-    type Output: 'a;
-    fn element_mut(&'a mut self, c: Coords) -> Self::Output;
+pub trait Indexable3DMut<'a>: Indexable3D<'a> {
+    type OutputMut: 'a;
+    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut;
 }
 
 pub trait Fillable<T> {

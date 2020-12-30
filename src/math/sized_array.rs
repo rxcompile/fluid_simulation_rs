@@ -34,9 +34,9 @@ impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3DMut<'a> f
 where
     T: 'static,
 {
-    type Output = &'a mut T;
+    type OutputMut = &'a mut T;
 
-    fn element_mut(&'a mut self, c: Coords) -> Self::Output {
+    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut {
         &mut self.0[index(c.0, c.1, c.2, X, Y, Z)]
     }
 }

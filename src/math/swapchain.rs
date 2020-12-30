@@ -80,9 +80,9 @@ impl<'a, T, const SIZE: usize> Indexable3DMut<'a> for Swapchain<T, SIZE>
 where
     T: Indexable3DMut<'a>,
 {
-    type Output = T::Output;
+    type OutputMut = T::OutputMut;
 
-    fn element_mut(&'a mut self, c: Coords) -> Self::Output {
+    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut {
         self.write().element_mut(c)
     }
 }
@@ -145,9 +145,9 @@ impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Indexable3DMut<'a>
 where
     T: Indexable3DMut<'a>,
 {
-    type Output = [T::Output; PACK_SIZE];
+    type OutputMut = [T::OutputMut; PACK_SIZE];
 
-    fn element_mut(&'a mut self, c: Coords) -> Self::Output {
+    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut {
         construct_from(self.iter_mut().map(|i| i.element_mut(c)))
     }
 }

@@ -46,8 +46,8 @@ pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
     blockage: &BLK,
     force: f32,
 ) where
-    DST: for<'a> Indexable3DMut<'a, Output = &'a mut Option<AdvectionResult>>,
-    TTL: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut Option<AdvectionResult>>,
+    TTL: for<'a> Indexable3DMut<'a, Output = &'a f32, OutputMut = &'a mut f32>,
     VEL: for<'a> Indexable3D<'a, Output = [&'a f32;3]>,
     BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
 {
@@ -159,14 +159,14 @@ pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
             // Get the TOTAL fraction requested from each source cell
             // If less then 1.0 in total then no scaling is necessary
             // Scale the amount we are transferring
-            k.a /= totals.element_mut(k.new_position + DIFF_TABLE[0]).max(1.0);
-            k.b /= totals.element_mut(k.new_position + DIFF_TABLE[1]).max(1.0);
-            k.c /= totals.element_mut(k.new_position + DIFF_TABLE[2]).max(1.0);
-            k.d /= totals.element_mut(k.new_position + DIFF_TABLE[3]).max(1.0);
-            k.e /= totals.element_mut(k.new_position + DIFF_TABLE[4]).max(1.0);
-            k.f /= totals.element_mut(k.new_position + DIFF_TABLE[5]).max(1.0);
-            k.g /= totals.element_mut(k.new_position + DIFF_TABLE[6]).max(1.0);
-            k.h /= totals.element_mut(k.new_position + DIFF_TABLE[7]).max(1.0);
+            k.a /= totals.element(k.new_position + DIFF_TABLE[0]).max(1.0);
+            k.b /= totals.element(k.new_position + DIFF_TABLE[1]).max(1.0);
+            k.c /= totals.element(k.new_position + DIFF_TABLE[2]).max(1.0);
+            k.d /= totals.element(k.new_position + DIFF_TABLE[3]).max(1.0);
+            k.e /= totals.element(k.new_position + DIFF_TABLE[4]).max(1.0);
+            k.f /= totals.element(k.new_position + DIFF_TABLE[5]).max(1.0);
+            k.g /= totals.element(k.new_position + DIFF_TABLE[6]).max(1.0);
+            k.h /= totals.element(k.new_position + DIFF_TABLE[7]).max(1.0);
         }
     }
 }
@@ -213,7 +213,7 @@ fn collide(new: &mut (f32, f32, f32), c: Coords, blockage: &FlowFlags) -> bool {
 
 pub fn forward_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
 where
-    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
     COEF: for<'a> Indexable3D<'a, Output = &'a Option<AdvectionResult>>,
 {
@@ -246,7 +246,7 @@ where
 
 pub fn reverse_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
 where
-    DST: for<'a> Indexable3DMut<'a, Output = &'a mut f32>,
+    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
     SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
     COEF: for<'a> Indexable3D<'a, Output = &'a Option<AdvectionResult>>,
 {
