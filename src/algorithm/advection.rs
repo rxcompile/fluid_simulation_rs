@@ -208,7 +208,7 @@ fn collide(new: &mut (f32, f32, f32), c: Coords, blockage: &FlowFlags) -> bool {
         new.2 = this.2;
         collided = true;
     }
-    return collided;
+    collided
 }
 
 pub fn forward_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)

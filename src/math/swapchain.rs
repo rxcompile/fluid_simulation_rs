@@ -42,7 +42,7 @@ impl<T, const SIZE: usize> Swapchain<T, SIZE> {
         &mut self.data[(self.current + 1) % SIZE]
     }
 
-    pub fn rw_pair<'a>(&'a mut self) -> (&'a T, &'a mut T) {
+    pub fn rw_pair(&mut self) -> (&T, &mut T) {
         let w_idx = (self.current + 1) % SIZE;
         let r_idx = self.current;
         assert_ne!(w_idx, r_idx);

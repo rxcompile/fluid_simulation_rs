@@ -44,3 +44,9 @@ fn bench_simulation_iterate_10(b: &mut Bencher) {
             .sum::<f32>()
     });
 }
+
+#[bench]
+fn bench_simulation_step_256(b: &mut Bencher) {
+    let mut domain: Domain<1, 256, 128, 256> = Default::default();
+    b.iter(|| domain.simulate());
+}

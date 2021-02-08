@@ -1,0 +1,65 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'fluid_simulation'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=fluid_simulation"
+                ],
+                "filter": {
+                    "name": "fluid_simulation",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'simulation'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=simulation",
+                    "--package=fluid_simulation"
+                ],
+                "filter": {
+                    "name": "simulation",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'domain'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=domain",
+                    "--package=fluid_simulation"
+                ],
+                "filter": {
+                    "name": "domain",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

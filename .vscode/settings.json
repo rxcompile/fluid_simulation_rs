@@ -1,5 +1,3 @@
 {
     "rust-analyzer.updates.channel": "nightly",
-    "editor.lineNumbers": "on",
-    "editor.folding": true,
 }
