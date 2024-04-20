@@ -17,17 +17,6 @@ where
         let transfer_amount = transfer_amount(src, blk, &c, force);
         *dst.slice_mut(&c) = transfer_amount;
     }
-    // iterator::iterate(dst.size())
-    //     .collect::<Vec<_>>()
-    //     .par_iter()
-    //     .map(|c| (c, transfer_amount(src, *blockage.slice(&c), c, force)))
-    //     .collect_vec_list()
-    //     .into_iter()
-    //     .flatten()
-    //     .for_each(|(c, v)| {
-    //         let _ = dst.size();
-    //         let _ = *dst.slice_mut(&c) = v;
-    //     });
 }
 
 fn add(x: usize, s: usize) -> Option<usize> {

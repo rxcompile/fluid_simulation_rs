@@ -1,7 +1,4 @@
-#![feature(
-    maybe_uninit_uninit_array,
-    maybe_uninit_array_assume_init,
-)]
+#![feature(maybe_uninit_uninit_array, maybe_uninit_array_assume_init)]
 
 mod algorithm;
 mod data;
@@ -11,7 +8,7 @@ mod support_utils;
 pub use data::properties::{DomainProperties, PackProperties};
 pub use data::{domain::Domain, flow::FlowFlags};
 pub use math::swapchain::Swapchain;
-pub use math::{iterator, Coords, Slice3D, Slice3DMut, Sized3D};
+pub use math::{iterator, Coords, Sized3D, Slice3D, Slice3DMut};
 
 #[macro_use]
 extern crate bitflags;

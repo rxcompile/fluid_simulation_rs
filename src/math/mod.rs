@@ -40,13 +40,3 @@ pub trait Slice3DMut {
     type Output<'a> where Self: 'a;
     fn slice_mut<'a, 'b>(&'a mut self, c: &'b Coords) -> Self::Output<'a>;
 }
-
-// pub trait Indexable3D<'a> : std::ops::Index<&'a Coords> {}
-// impl<'a, T: std::ops::Index<&'a Coords>> Indexable3D<'a> for T {}
-
-// pub trait Indexable3DMut<'a> : std::ops::IndexMut<&'a Coords> {}
-// impl<'a, T: std::ops::IndexMut<&'a Coords>> Indexable3DMut<'a> for T {}
-
-pub trait Fillable<T> {
-    fn fill(&mut self, default: T);
-}

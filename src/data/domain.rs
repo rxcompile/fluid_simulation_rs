@@ -1,8 +1,5 @@
 use crate::{
-    algorithm::{advection, diffusion, forces},
-    data::runtime::{DomainRuntime, DomainTemp},
-    math::{swapchain::Swapable, Fillable, Sized3D, Slice3D, Slice3DMut},
-    Coords, DomainProperties,
+    algorithm::{advection, diffusion, forces}, data::runtime::{DomainRuntime, DomainTemp}, iterator, math::{swapchain::Swapable, Sized3D, Slice3D, Slice3DMut}, Coords, DomainProperties
 };
 
 #[derive(Default)]
@@ -110,9 +107,12 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
         }
 
         // cleanup totals
-        self.temp.forward_velocity_coefficients_totals.fill(0.0);
-        self.temp.reverse_velocity_coefficients_totals.fill(0.0);
-        self.temp.pressure_coefficients_totals.fill(0.0);
+        for c in iterator::iterate(self.size())
+        {
+            *self.temp.forward_velocity_coefficients_totals.slice_mut(&c) = 0.0;
+            *self.temp.reverse_velocity_coefficients_totals.slice_mut(&c) = 0.0;
+            *self.temp.pressure_coefficients_totals.slice_mut(&c) = 0.0;
+        }
         // Advection order makes significant differences
         // Advecting pressure first leads to self-maintaining waves and ripple
         // artifacts Advecting velocity first naturally dissipates the waves

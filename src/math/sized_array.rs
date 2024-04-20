@@ -1,5 +1,5 @@
 use super::{
-    index, Fillable, FlatIndex, Sized3D, Slice3D, Slice3DMut,
+    index, FlatIndex, Sized3D, Slice3D, Slice3DMut,
 };
 use crate::Coords;
 
@@ -47,15 +47,6 @@ impl<T, const X: usize, const Y: usize, const Z: usize> std::ops::IndexMut<&Coor
     fn index_mut(&mut self, index: &Coords) -> &mut Self::Output {
         let index = self.to_index(&index);
         &mut self.0[index]
-    }
-}
-
-impl<T, const X: usize, const Y: usize, const Z: usize> Fillable<T> for SizedArray3D<T, X, Y, Z>
-where
-    T: Clone,
-{
-    fn fill(&mut self, default: T) {
-        self.0.fill(default)
     }
 }
 
