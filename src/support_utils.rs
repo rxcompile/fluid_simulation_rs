@@ -8,17 +8,11 @@ pub fn construct_default<T: Default, const S: usize>() -> [T; S] {
 
 pub fn construct_from<T, I: Iterator, const S: usize>(iter: I) -> [T; S]
 where
-    I: Iterator<Item = T>,
+    I: IntoIterator<Item = T>,
 {
-    let mut buffer = std::mem::MaybeUninit::<T>::uninit_array::<S>();
-    let mut x = iter;
-    for i in buffer.iter_mut() {
-        match x.next() {
-            Some(v) => {
-                i.write(v);
-            }
-            _ => panic!("No data to read from while constructing array!"),
-        }
+    let mut buffer = std::mem::MaybeUninit::uninit_array::<S>();
+    for (i, val) in buffer.iter_mut().zip(iter) {
+        i.write(val);
     }
-    unsafe { std::mem::transmute_copy(&buffer) }
+    unsafe { std::mem::MaybeUninit::array_assume_init(buffer) }
 }

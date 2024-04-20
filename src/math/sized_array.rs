@@ -1,4 +1,6 @@
-use super::{index, Fillable, Indexable3D, Indexable3DMut, Sizeable3D};
+use super::{
+    index, Fillable, FlatIndex, Sized3D, Slice3D, Slice3DMut,
+};
 use crate::Coords;
 
 #[derive(Clone)]
@@ -13,33 +15,38 @@ where
     }
 }
 
-impl<T, const X: usize, const Y: usize, const Z: usize> Sizeable3D for SizedArray3D<T, X, Y, Z> {
+impl<T, const X: usize, const Y: usize, const Z: usize> Sized3D for SizedArray3D<T, X, Y, Z> {
     fn size(&self) -> Coords {
         (X, Y, Z).into()
     }
 }
 
-impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3D<'a>
-    for SizedArray3D<T, X, Y, Z>
-where
-    T: 'static,
-{
-    type Output = &'a T;
+impl<T, const X: usize, const Y: usize, const Z: usize> FlatIndex for SizedArray3D<T, X, Y, Z> {
+    fn to_index(&self, c: &Coords) -> usize {
+        index(c.0, c.1, c.2, X, Y, Z)
+    }
 
-    fn element(&'a self, c: Coords) -> Self::Output {
-        &self.0[index(c.0, c.1, c.2, X, Y, Z)]
+    fn from_index(&self, _: usize) -> Coords {
+        todo!()
     }
 }
 
-impl<'a, T, const X: usize, const Y: usize, const Z: usize> Indexable3DMut<'a>
+impl<T, const X: usize, const Y: usize, const Z: usize> std::ops::Index<&Coords>
     for SizedArray3D<T, X, Y, Z>
-where
-    T: 'static,
 {
-    type OutputMut = &'a mut T;
+    type Output = T;
 
-    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut {
-        &mut self.0[index(c.0, c.1, c.2, X, Y, Z)]
+    fn index(&self, index: &Coords) -> &Self::Output {
+        &self.0[self.to_index(&index)]
+    }
+}
+
+impl<T, const X: usize, const Y: usize, const Z: usize> std::ops::IndexMut<&Coords>
+    for SizedArray3D<T, X, Y, Z>
+{
+    fn index_mut(&mut self, index: &Coords) -> &mut Self::Output {
+        let index = self.to_index(&index);
+        &mut self.0[index]
     }
 }
 
@@ -175,3 +182,18 @@ where
         Self(data)
     }
 }
+
+impl<T, const X: usize, const Y: usize, const Z: usize> Slice3D for SizedArray3D<T, X, Y, Z> {
+    type Output<'a> = &'a T where Self: 'a;
+    fn slice<'a>(&'a self, c: &Coords) -> Self::Output<'a> {
+        &self[c]
+    }
+}
+
+impl<T, const X: usize, const Y: usize, const Z: usize> Slice3DMut for SizedArray3D<T, X, Y, Z> {
+    type Output<'a> = &'a mut T where Self: 'a;
+    fn slice_mut<'a>(&'a mut self, c: &Coords) -> Self::Output<'a> {
+        &mut self[c]
+    }
+}
+

@@ -1,6 +1,7 @@
 use crate::{
     data::flow::FlowFlags,
-    math::{coords, iterator, Coords, CoordsDiff, Indexable3D, Indexable3DMut},
+    math::{coords, iterator, Coords, CoordsDiff, Slice3D, Slice3DMut},
+    Sized3D,
 };
 
 const DIFF_TABLE: [CoordsDiff; 8] = [
@@ -26,7 +27,7 @@ const DIFF_TABLE: [CoordsDiff; 8] = [
           \|G_______\H
 */
 #[derive(Clone, Default)]
-pub struct AdvectionResult {
+pub(crate) struct AdvectionResult {
     a: f32,
     b: f32,
     c: f32,
@@ -36,26 +37,25 @@ pub struct AdvectionResult {
     g: f32,
     h: f32,
     new_position: Coords,
-    is_hit_boundary: bool,
 }
 
-pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
+pub(crate) fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
     dst: &mut DST,
     totals: &mut TTL,
     vel: &VEL,
     blockage: &BLK,
     force: f32,
 ) where
-    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut Option<AdvectionResult>>,
-    TTL: for<'a> Indexable3DMut<'a, Output = &'a f32, OutputMut = &'a mut f32>,
-    VEL: for<'a> Indexable3D<'a, Output = [&'a f32; 3]>,
-    BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
+    DST: for<'a> Slice3DMut<Output<'a> = &'a mut Option<AdvectionResult>>,
+    TTL: for<'a> Slice3DMut<Output<'a> = &'a mut f32> + Sized3D,
+    VEL: for<'a> Slice3D<Output<'a> = [&'a f32; 3]>,
+    BLK: for<'a> Slice3D<Output<'a> = &'a FlowFlags>,
 {
     // This can easily be threaded as the input array is independent from the
     // output array
     let size = totals.size();
     for c in iterator::iterate(size - coords::ONES) {
-        let [vx, vy, vz] = vel.element(c);
+        let [vx, vy, vz] = vel.slice(&c);
 
         if vx.abs() <= f32::EPSILON && vy.abs() <= f32::EPSILON && vz.abs() <= f32::EPSILON {
             continue;
@@ -69,7 +69,7 @@ pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
         );
 
         // Check for and correct boundary collisions
-        let is_collided = collide(&mut new, c, blockage.element(c));
+        let _is_collided = collide(&mut new, c, *blockage.slice(&c));
 
         // Find the nearest top-left integer grid point of the advection
         // x, y, z locations of top-left-back grid point (A) after advection
@@ -138,40 +138,47 @@ pub fn generate_advection_coefficients<DST, TTL, VEL, BLK>(
             g: fz1 * fy1 * (1.0 - fx1),
             h: fz1 * fy1 * fx1,
             new_position: (tx1, ty1, tz1).into(),
-            is_hit_boundary: is_collided,
         };
 
         // Accumulating the total value for the four destinations
-        *totals.element_mut(result.new_position + DIFF_TABLE[0]) += result.a;
-        *totals.element_mut(result.new_position + DIFF_TABLE[1]) += result.b;
-        *totals.element_mut(result.new_position + DIFF_TABLE[2]) += result.c;
-        *totals.element_mut(result.new_position + DIFF_TABLE[3]) += result.d;
-        *totals.element_mut(result.new_position + DIFF_TABLE[4]) += result.e;
-        *totals.element_mut(result.new_position + DIFF_TABLE[5]) += result.f;
-        *totals.element_mut(result.new_position + DIFF_TABLE[6]) += result.g;
-        *totals.element_mut(result.new_position + DIFF_TABLE[7]) += result.h;
-        *dst.element_mut(c) = Some(result);
+        let coords0 = result.new_position + DIFF_TABLE[0];
+        let coords1 = result.new_position + DIFF_TABLE[1];
+        let coords2 = result.new_position + DIFF_TABLE[2];
+        let coords3 = result.new_position + DIFF_TABLE[3];
+        let coords4 = result.new_position + DIFF_TABLE[4];
+        let coords5 = result.new_position + DIFF_TABLE[5];
+        let coords6 = result.new_position + DIFF_TABLE[6];
+        let coords7 = result.new_position + DIFF_TABLE[7];
+        *totals.slice_mut(&coords0) += result.a;
+        *totals.slice_mut(&coords1) += result.b;
+        *totals.slice_mut(&coords2) += result.c;
+        *totals.slice_mut(&coords3) += result.d;
+        *totals.slice_mut(&coords4) += result.e;
+        *totals.slice_mut(&coords5) += result.f;
+        *totals.slice_mut(&coords6) += result.g;
+        *totals.slice_mut(&coords7) += result.h;
+        *dst.slice_mut(&c) = Some(result);
     }
 
     // Normalize values
     for c in iterator::iterate(size) {
-        if let Some(k) = dst.element_mut(c) {
+        if let Some(k) = dst.slice_mut(&c) {
             // Get the TOTAL fraction requested from each source cell
             // If less then 1.0 in total then no scaling is necessary
             // Scale the amount we are transferring
-            k.a /= totals.element(k.new_position + DIFF_TABLE[0]).max(1.0);
-            k.b /= totals.element(k.new_position + DIFF_TABLE[1]).max(1.0);
-            k.c /= totals.element(k.new_position + DIFF_TABLE[2]).max(1.0);
-            k.d /= totals.element(k.new_position + DIFF_TABLE[3]).max(1.0);
-            k.e /= totals.element(k.new_position + DIFF_TABLE[4]).max(1.0);
-            k.f /= totals.element(k.new_position + DIFF_TABLE[5]).max(1.0);
-            k.g /= totals.element(k.new_position + DIFF_TABLE[6]).max(1.0);
-            k.h /= totals.element(k.new_position + DIFF_TABLE[7]).max(1.0);
+            k.a /= totals.slice_mut(&(k.new_position + DIFF_TABLE[0])).max(1.0);
+            k.b /= totals.slice_mut(&(k.new_position + DIFF_TABLE[1])).max(1.0);
+            k.c /= totals.slice_mut(&(k.new_position + DIFF_TABLE[2])).max(1.0);
+            k.d /= totals.slice_mut(&(k.new_position + DIFF_TABLE[3])).max(1.0);
+            k.e /= totals.slice_mut(&(k.new_position + DIFF_TABLE[4])).max(1.0);
+            k.f /= totals.slice_mut(&(k.new_position + DIFF_TABLE[5])).max(1.0);
+            k.g /= totals.slice_mut(&(k.new_position + DIFF_TABLE[6])).max(1.0);
+            k.h /= totals.slice_mut(&(k.new_position + DIFF_TABLE[7])).max(1.0);
         }
     }
 }
 
-fn collide(new: &mut (f32, f32, f32), c: Coords, blockage: &FlowFlags) -> bool {
+fn collide(new: &mut (f32, f32, f32), c: Coords, blockage: FlowFlags) -> bool {
     const MAX_ADVECT: f32 = 1.5; // 1.5 - is center of neighbor cell
     const CLAMP_MIN: f32 = -MAX_ADVECT + f32::EPSILON;
     const CLAMP_MAX: f32 = MAX_ADVECT - f32::EPSILON;
@@ -211,68 +218,68 @@ fn collide(new: &mut (f32, f32, f32), c: Coords, blockage: &FlowFlags) -> bool {
     collided
 }
 
-pub fn forward_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
+pub(crate) fn forward_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
 where
-    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
-    SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
-    COEF: for<'a> Indexable3D<'a, Output = &'a Option<AdvectionResult>>,
+    DST: for<'a> Slice3DMut<Output<'a> = &'a mut f32>,
+    SRC: for<'a> Slice3D<Output<'a> = &'a f32>,
+    COEF: for<'a> Slice3D<Output<'a> = &'a Option<AdvectionResult>> + Sized3D,
 {
-    let size = src.size();
+    let size = coefficients.size();
     for c in iterator::iterate(size) {
-        if let Some(v) = coefficients.element(c) {
+        if let Some(v) = &coefficients.slice(&c) {
             let mut res = v.clone();
-            res.a *= *src.element(c + DIFF_TABLE[0]);
-            res.b *= *src.element(c + DIFF_TABLE[1]);
-            res.c *= *src.element(c + DIFF_TABLE[2]);
-            res.d *= *src.element(c + DIFF_TABLE[3]);
-            res.e *= *src.element(c + DIFF_TABLE[4]);
-            res.f *= *src.element(c + DIFF_TABLE[5]);
-            res.g *= *src.element(c + DIFF_TABLE[6]);
-            res.h *= *src.element(c + DIFF_TABLE[7]);
+            res.a *= src.slice(&(c + DIFF_TABLE[0]));
+            res.b *= src.slice(&(c + DIFF_TABLE[1]));
+            res.c *= src.slice(&(c + DIFF_TABLE[2]));
+            res.d *= src.slice(&(c + DIFF_TABLE[3]));
+            res.e *= src.slice(&(c + DIFF_TABLE[4]));
+            res.f *= src.slice(&(c + DIFF_TABLE[5]));
+            res.g *= src.slice(&(c + DIFF_TABLE[6]));
+            res.h *= src.slice(&(c + DIFF_TABLE[7]));
 
-            *dst.element_mut(c) -= res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
+            *dst.slice_mut(&c) -= res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
 
-            *dst.element_mut(res.new_position + DIFF_TABLE[0]) += res.a;
-            *dst.element_mut(res.new_position + DIFF_TABLE[1]) += res.b;
-            *dst.element_mut(res.new_position + DIFF_TABLE[2]) += res.c;
-            *dst.element_mut(res.new_position + DIFF_TABLE[3]) += res.d;
-            *dst.element_mut(res.new_position + DIFF_TABLE[4]) += res.e;
-            *dst.element_mut(res.new_position + DIFF_TABLE[5]) += res.f;
-            *dst.element_mut(res.new_position + DIFF_TABLE[6]) += res.g;
-            *dst.element_mut(res.new_position + DIFF_TABLE[7]) += res.h;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[0])) += res.a;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[1])) += res.b;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[2])) += res.c;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[3])) += res.d;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[4])) += res.e;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[5])) += res.f;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[6])) += res.g;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[7])) += res.h;
         }
     }
 }
 
-pub fn reverse_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
+pub(crate) fn reverse_advection<DST, SRC, COEF>(dst: &mut DST, src: &SRC, coefficients: &COEF)
 where
-    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
-    SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
-    COEF: for<'a> Indexable3D<'a, Output = &'a Option<AdvectionResult>>,
+    DST: for<'a> Slice3DMut<Output<'a> = &'a mut f32>,
+    SRC: for<'a> Slice3D<Output<'a> = &'a f32>,
+    COEF: for<'a> Slice3D<Output<'a> = &'a Option<AdvectionResult>> + Sized3D,
 {
-    let size = src.size();
+    let size = coefficients.size();
     for c in iterator::iterate(size) {
-        if let Some(v) = coefficients.element(c) {
+        if let Some(v) = &coefficients.slice(&c) {
             let mut res = v.clone();
-            res.a *= *src.element(c + DIFF_TABLE[0]);
-            res.b *= *src.element(c + DIFF_TABLE[1]);
-            res.c *= *src.element(c + DIFF_TABLE[2]);
-            res.d *= *src.element(c + DIFF_TABLE[3]);
-            res.e *= *src.element(c + DIFF_TABLE[4]);
-            res.f *= *src.element(c + DIFF_TABLE[5]);
-            res.g *= *src.element(c + DIFF_TABLE[6]);
-            res.h *= *src.element(c + DIFF_TABLE[7]);
+            res.a *= src.slice(&(c + DIFF_TABLE[0]));
+            res.b *= src.slice(&(c + DIFF_TABLE[1]));
+            res.c *= src.slice(&(c + DIFF_TABLE[2]));
+            res.d *= src.slice(&(c + DIFF_TABLE[3]));
+            res.e *= src.slice(&(c + DIFF_TABLE[4]));
+            res.f *= src.slice(&(c + DIFF_TABLE[5]));
+            res.g *= src.slice(&(c + DIFF_TABLE[6]));
+            res.h *= src.slice(&(c + DIFF_TABLE[7]));
 
-            *dst.element_mut(c) += res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
+            *dst.slice_mut(&c) += res.a + res.b + res.c + res.d + res.e + res.f + res.g + res.h;
 
-            *dst.element_mut(res.new_position + DIFF_TABLE[0]) -= res.a;
-            *dst.element_mut(res.new_position + DIFF_TABLE[1]) -= res.b;
-            *dst.element_mut(res.new_position + DIFF_TABLE[2]) -= res.c;
-            *dst.element_mut(res.new_position + DIFF_TABLE[3]) -= res.d;
-            *dst.element_mut(res.new_position + DIFF_TABLE[4]) -= res.e;
-            *dst.element_mut(res.new_position + DIFF_TABLE[5]) -= res.f;
-            *dst.element_mut(res.new_position + DIFF_TABLE[6]) -= res.g;
-            *dst.element_mut(res.new_position + DIFF_TABLE[7]) -= res.h;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[0])) -= res.a;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[1])) -= res.b;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[2])) -= res.c;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[3])) -= res.d;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[4])) -= res.e;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[5])) -= res.f;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[6])) -= res.g;
+            *dst.slice_mut(&(res.new_position + DIFF_TABLE[7])) -= res.h;
         }
     }
 }

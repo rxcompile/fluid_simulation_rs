@@ -1,4 +1,5 @@
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct FlowFlags: u8 {
         const X_FORW = 0b00000001;
         const Y_FORW = 0b00000010;

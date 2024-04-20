@@ -1,8 +1,8 @@
 use crate::{
     algorithm::{advection, diffusion, forces},
     data::runtime::{DomainRuntime, DomainTemp},
-    math::{swapchain::Swapable, Fillable, Indexable3D, Indexable3DMut, Sizeable3D},
-    support_utils, Coords, DomainProperties,
+    math::{swapchain::Swapable, Fillable, Sized3D, Slice3D, Slice3DMut},
+    Coords, DomainProperties,
 };
 
 #[derive(Default)]
@@ -12,7 +12,7 @@ pub struct Domain<const P_SIZE: usize, const X: usize, const Y: usize, const Z: 
     pub prop: DomainProperties,
 }
 
-impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Sizeable3D
+impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Sized3D
     for Domain<P_SIZE, X, Y, Z>
 {
     fn size(&self) -> Coords {
@@ -28,25 +28,23 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
         }
     }
 
-    pub fn pressure(&self, c: Coords) -> [f32; P_SIZE] {
-        support_utils::construct_from(self.data.pressure.iter().map(|r| *r.element(c)))
+    pub fn pressure(&self, c: &Coords) -> [f32; P_SIZE] {
+        self.data.pressure.slice(c).map(|x| *x)
     }
 
-    pub fn set_pressure(&mut self, c: Coords, v: &[f32; P_SIZE]) {
-        self.data
-            .pressure
-            .iter_mut()
-            .zip(v.iter())
-            .for_each(|(w, r)| *w.element_mut(c) = *r);
+    pub fn set_pressure(&mut self, c: &Coords, v: &[f32; P_SIZE]) {
+        for i in 0..P_SIZE {
+            *self.data.pressure.slice_mut(c)[i] = v[i];
+        }
     }
 
-    pub fn velocity(&self, c: Coords) -> (f32, f32, f32) {
-        let vel = self.data.velocity.element(c);
-        (*vel[0], *vel[1], *vel[2])
+    pub fn velocity(&self, c: &Coords) -> (f32, f32, f32) {
+        let ar = self.data.velocity.slice(c);
+        (*ar[0], *ar[1], *ar[2])
     }
 
-    pub fn set_velocity(&mut self, c: Coords, v: (f32, f32, f32)) {
-        let vel = self.data.velocity.element_mut(c);
+    pub fn set_velocity(&mut self, c: &Coords, v: (f32, f32, f32)) {
+        let vel = self.data.velocity.slice_mut(c);
         *vel[0] = v.0;
         *vel[1] = v.1;
         *vel[2] = v.2;
@@ -66,7 +64,7 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
     fn sim_diffusion(&mut self) {
         let force = self.prop.pressure_props.diffusion;
         for _ in 0..self.prop.diffusion_steps {
-            for (src, dst) in self.data.pressure.iter_mut().map(|i| i.rw_pair()) {
+            for (src, dst) in self.data.pressure.rw_pairs() {
                 diffusion::diffusion_step(
                     dst,
                     src,
@@ -82,31 +80,20 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
     fn sim_forces(&mut self) {
         if let Some(decay) = self.prop.velocity_decay {
             let coefficient = (1.0 - decay).powf(self.prop.step_delta_time);
-            for (src, dst) in self.data.velocity.iter_mut().map(|v| v.rw_pair()) {
+            for (src, dst) in self.data.velocity.rw_pairs() {
                 forces::decay_velocity(dst, src, coefficient);
             }
-            // swapchain
             self.data.velocity.swap_buffers();
         }
         if let Some(pressure_acceleration) = self.prop.pressure_acceleration {
-            self.data.velocity.copy_from_read();
             let force = pressure_acceleration * self.prop.step_delta_time;
             forces::pressuarize(&mut self.data.velocity, &self.data.pressure, force);
-            // swapchain
             self.data.velocity.swap_buffers();
         }
         if let Some(vorticity) = self.prop.vorticity {
-            self.data.velocity.copy_from_read();
-
             let force = vorticity * self.prop.step_delta_time;
-            forces::generate_vortexes(
-                &mut self.temp.vorticies,
-                self.data.velocity[0].read(),
-                self.data.velocity[1].read(),
-                self.data.velocity[2].read(),
-            );
+            forces::generate_vortexes(&mut self.temp.vorticies, &self.data.velocity);
             forces::apply_vortex(&mut self.data.velocity, &self.temp.vorticies, force);
-            // swapchain
             self.data.velocity.swap_buffers();
         }
     }
@@ -151,18 +138,18 @@ impl<const P_SIZE: usize, const X: usize, const Y: usize, const Z: usize> Domain
             scale * self.prop.pressure_props.advection,
         );
 
-        for (r, w) in self.data.velocity.iter_mut().map(|i| i.rw_pair()) {
+        for (r, w) in self.data.velocity.rw_pairs() {
             advection::forward_advection(w, r, &self.temp.forward_velocity_coefficients);
         }
-        for (r, w) in self.data.velocity.iter_mut().map(|i| i.rw_pair()) {
+        for (r, w) in self.data.velocity.rw_pairs() {
             advection::reverse_advection(w, r, &self.temp.forward_velocity_coefficients);
         }
         self.data.velocity.swap_buffers();
 
-        for (r, w) in self.data.pressure.iter_mut().map(|i| i.rw_pair()) {
+        for (r, w) in self.data.pressure.rw_pairs() {
             advection::forward_advection(w, r, &self.temp.pressure_coefficients);
         }
-        for (r, w) in self.data.pressure.iter_mut().map(|i| i.rw_pair()) {
+        for (r, w) in self.data.pressure.rw_pairs() {
             advection::reverse_advection(w, r, &self.temp.pressure_coefficients);
         }
         self.data.pressure.swap_buffers();

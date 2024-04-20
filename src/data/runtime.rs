@@ -1,7 +1,6 @@
 use crate::{
     algorithm::advection,
     math::{swapchain::SwapchainPack, SizedArray3D},
-    support_utils,
 };
 
 use super::flow;
@@ -17,15 +16,15 @@ impl<const P: usize, const SX: usize, const SY: usize, const SZ: usize> Default
 {
     fn default() -> Self {
         Self {
-            velocity: support_utils::construct_default(),
-            pressure: support_utils::construct_default(),
+            velocity: Default::default(),
+            pressure: Default::default(),
             blockage: Default::default(),
         }
     }
 }
 
 #[derive(Default)]
-pub struct DomainTemp<const SX: usize, const SY: usize, const SZ: usize> {
+pub(crate) struct DomainTemp<const SX: usize, const SY: usize, const SZ: usize> {
     pub vorticies: SizedArray3D<f32, SX, SY, SZ>,
     pub forward_velocity_coefficients: SizedArray3D<Option<advection::AdvectionResult>, SX, SY, SZ>,
     pub reverse_velocity_coefficients: SizedArray3D<Option<advection::AdvectionResult>, SX, SY, SZ>,

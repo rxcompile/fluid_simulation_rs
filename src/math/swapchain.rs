@@ -1,20 +1,16 @@
-use crate::{
-    math::{Coords, Indexable3D, Indexable3DMut},
-    support_utils::construct_from,
-};
-use std::mem::MaybeUninit;
+use crate::{math::Coords, support_utils};
 
-use super::Sizeable3D;
+use super::{Sized3D, Slice3D, Slice3DMut};
 
 pub trait Swapable {
     fn swap_buffers(&mut self);
-    fn copy_from_read(&mut self);
 }
 
 #[derive(Clone, Debug)]
 pub struct Swapchain<T, const SIZE: usize> {
     pub data: [T; SIZE],
-    pub current: usize,
+    pub current_producer: usize,
+    pub current_consumer: usize,
 }
 
 impl<T, const SIZE: usize> Default for Swapchain<T, SIZE>
@@ -22,29 +18,26 @@ where
     T: Default,
 {
     fn default() -> Self {
-        let mut tmp = MaybeUninit::<T>::uninit_array::<SIZE>();
-        for v in tmp.iter_mut() {
-            v.write(Default::default());
-        }
         Self {
-            data: unsafe { std::mem::transmute_copy(&tmp) },
-            current: 0,
+            data: support_utils::construct_default(),
+            current_consumer: 0,
+            current_producer: 1,
         }
     }
 }
 
 impl<T, const SIZE: usize> Swapchain<T, SIZE> {
-    pub fn read(&self) -> &T {
-        &self.data[self.current]
+    pub fn consumer(&self) -> &T {
+        &self.data[self.current_consumer]
     }
 
-    pub fn write(&mut self) -> &mut T {
-        &mut self.data[(self.current + 1) % SIZE]
+    pub fn producer(&mut self) -> &mut T {
+        &mut self.data[self.current_producer]
     }
 
-    pub fn rw_pair(&mut self) -> (&T, &mut T) {
-        let w_idx = (self.current + 1) % SIZE;
-        let r_idx = self.current;
+    pub fn rw_pair<'a>(&'a mut self) -> (&'a T, &'a mut T) {
+        let w_idx = self.current_producer;
+        let r_idx = self.current_consumer;
         assert_ne!(w_idx, r_idx);
         if w_idx > r_idx {
             let (rs, ws) = self.data.split_at_mut(w_idx);
@@ -56,34 +49,34 @@ impl<T, const SIZE: usize> Swapchain<T, SIZE> {
     }
 }
 
-impl<T, const SIZE: usize> Sizeable3D for Swapchain<T, SIZE>
+impl<T, const SIZE: usize> Sized3D for Swapchain<T, SIZE>
 where
-    T: Sizeable3D,
+    T: Sized3D,
 {
     fn size(&self) -> Coords {
-        self.read().size()
+        self.consumer().size()
     }
 }
 
-impl<'a, T, const SIZE: usize> Indexable3D<'a> for Swapchain<T, SIZE>
+impl<T, const SIZE: usize> Slice3D for Swapchain<T, SIZE>
 where
-    T: Indexable3D<'a>,
+    T: Slice3D,
 {
-    type Output = T::Output;
+    type Output<'a> = T::Output<'a> where Self: 'a;
 
-    fn element(&'a self, c: Coords) -> Self::Output {
-        self.read().element(c)
+    fn slice<'a>(&'a self, c: &Coords) -> Self::Output<'a> {
+        self.consumer().slice(&c)
     }
 }
 
-impl<'a, T, const SIZE: usize> Indexable3DMut<'a> for Swapchain<T, SIZE>
+impl<T, const SIZE: usize> Slice3DMut for Swapchain<T, SIZE>
 where
-    T: Indexable3DMut<'a>,
+    T: Slice3DMut,
 {
-    type OutputMut = T::OutputMut;
+    type Output<'a> = T::Output<'a> where Self: 'a;
 
-    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut {
-        self.write().element_mut(c)
+    fn slice_mut<'a>(&'a mut self, c: &Coords) -> Self::Output<'a> {
+        self.producer().slice_mut(&c)
     }
 }
 
@@ -92,17 +85,60 @@ where
     T: std::clone::Clone,
 {
     fn swap_buffers(&mut self) {
-        self.current = (self.current + 1) % SIZE
-    }
-
-    fn copy_from_read(&mut self) {
+        // Apply write buffer to read
         let (r, w) = self.rw_pair();
         *w = r.clone();
+        // Rotate indexes
+        self.current_producer = (self.current_producer + 1) % SIZE;
+        self.current_consumer = (self.current_consumer + 1) % SIZE;
     }
 }
 
-pub type SwapchainPack<T, const PACK_SIZE: usize, const SW_SIZE: usize> =
-    [Swapchain<T, SW_SIZE>; PACK_SIZE];
+pub struct SwapchainPack<T, const PACK_SIZE: usize, const SW_SIZE: usize> {
+    data: [Swapchain<T, SW_SIZE>; PACK_SIZE],
+}
+
+impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> SwapchainPack<T, PACK_SIZE, SW_SIZE> {
+    pub fn rw_pairs<'a>(&'a mut self) -> [(&'a T, &'a mut T); PACK_SIZE] {
+        self.data.each_mut().map(|p| p.rw_pair())
+    }
+}
+
+impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> Default
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self {
+            data: support_utils::construct_default(),
+        }
+    }
+}
+
+impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> Slice3D
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
+where
+    T: Slice3D,
+{
+    type Output<'a> = [T::Output<'a>; PACK_SIZE] where Self: 'a;
+
+    fn slice<'a>(&'a self, c: &Coords) -> Self::Output<'a> {
+        self.data.each_ref().map(|x| x.slice(c))
+    }
+}
+
+impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> Slice3DMut
+    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
+where
+    T: Slice3DMut,
+{
+    type Output<'a> = [T::Output<'a>; PACK_SIZE] where Self: 'a;
+
+    fn slice_mut<'a>(&'a mut self, c: &Coords) -> Self::Output<'a> {
+        self.data.each_mut().map(|x| x.slice_mut(c))
+    }
+}
 
 impl<T, const PACK_SIZE: usize, const SW_SIZE: usize> Swapable
     for SwapchainPack<T, PACK_SIZE, SW_SIZE>
@@ -110,44 +146,17 @@ where
     T: std::clone::Clone,
 {
     fn swap_buffers(&mut self) {
-        self.iter_mut().for_each(|x| x.swap_buffers())
-    }
-
-    fn copy_from_read(&mut self) {
-        self.iter_mut().for_each(|x| x.copy_from_read())
+        self.data.iter_mut().for_each(|x| x.swap_buffers())
     }
 }
 
-impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Sizeable3D
+impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Sized3D
     for SwapchainPack<T, PACK_SIZE, SW_SIZE>
 where
-    T: Sizeable3D,
+    T: Sized3D,
 {
     fn size(&self) -> Coords {
-        self[0].size()
-    }
-}
-
-impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Indexable3D<'a>
-    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
-where
-    T: Indexable3D<'a>,
-{
-    type Output = [T::Output; PACK_SIZE];
-
-    fn element(&'a self, c: Coords) -> Self::Output {
-        construct_from(self.iter().map(|i| i.element(c)))
-    }
-}
-
-impl<'a, T, const PACK_SIZE: usize, const SW_SIZE: usize> Indexable3DMut<'a>
-    for SwapchainPack<T, PACK_SIZE, SW_SIZE>
-where
-    T: Indexable3DMut<'a>,
-{
-    type OutputMut = [T::OutputMut; PACK_SIZE];
-
-    fn element_mut(&'a mut self, c: Coords) -> Self::OutputMut {
-        construct_from(self.iter_mut().map(|i| i.element_mut(c)))
+        // any will do
+        self.data[0].size()
     }
 }

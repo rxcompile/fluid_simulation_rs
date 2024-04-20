@@ -1,71 +1,95 @@
+use rayon::prelude::*;
+
 use crate::{
     data::flow::FlowFlags,
-    math::{iterator, Coords, Indexable3D, Indexable3DMut},
+    math::{iterator, Coords, Slice3D, Slice3DMut},
+    Sized3D,
 };
 
 pub fn diffusion_step<DST, SRC, BLK>(dst: &mut DST, src: &SRC, blockage: &BLK, force: f32)
 where
-    DST: for<'a> Indexable3DMut<'a, OutputMut = &'a mut f32>,
-    SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
-    BLK: for<'a> Indexable3D<'a, Output = &'a FlowFlags>,
+    DST: for<'a> Slice3DMut<Output<'a> = &'a mut f32> + Sized3D,
+    SRC: for<'a> Slice3D<Output<'a> = &'a f32> + Sized3D + std::marker::Sync,
+    BLK: for<'a> Slice3D<Output<'a> = &'a FlowFlags> + std::marker::Sync,
 {
     for c in iterator::iterate(dst.size()) {
-        diffusion_transfer(dst.element_mut(c), src, blockage.element(c), c, force);
+        let blk = *blockage.slice(&c);
+        let transfer_amount = transfer_amount(src, blk, &c, force);
+        *dst.slice_mut(&c) = transfer_amount;
+    }
+    // iterator::iterate(dst.size())
+    //     .collect::<Vec<_>>()
+    //     .par_iter()
+    //     .map(|c| (c, transfer_amount(src, *blockage.slice(&c), c, force)))
+    //     .collect_vec_list()
+    //     .into_iter()
+    //     .flatten()
+    //     .for_each(|(c, v)| {
+    //         let _ = dst.size();
+    //         let _ = *dst.slice_mut(&c) = v;
+    //     });
+}
+
+fn add(x: usize, s: usize) -> Option<usize> {
+    let res = x.checked_add(1);
+    if res.unwrap_or(s) < s {
+        res
+    } else {
+        None
     }
 }
 
-fn diffusion_transfer<SRC>(dst: &mut f32, src: &SRC, blk: &FlowFlags, coords: Coords, force: f32)
+fn sub(x: usize, _: usize) -> Option<usize> {
+    x.checked_sub(1)
+}
+
+fn transfer_amount<'a, SRC>(src: &'a SRC, blk: FlowFlags, item_pos: &Coords, force: f32) -> f32
 where
-    SRC: for<'a> Indexable3D<'a, Output = &'a f32>,
+    SRC: Slice3D<Output<'a> = &'a f32> + Sized3D + std::marker::Sync,
 {
     let size = src.size();
-    let add = |x: usize, s: usize| {
-        let res = x.checked_add(1);
-        if res.unwrap_or(s) < s {
-            res
-        } else {
-            None
-        }
-    };
-    let sub = |x: usize, _: usize| x.checked_sub(1);
+
     let dir_map = [
         (
             FlowFlags::X_FORW,
-            (add(coords.0, size.0), Some(coords.1), Some(coords.2)),
+            (add(item_pos.0, size.0), Some(item_pos.1), Some(item_pos.2)),
         ),
         (
             FlowFlags::X_BACK,
-            (sub(coords.0, size.0), Some(coords.1), Some(coords.2)),
+            (sub(item_pos.0, size.0), Some(item_pos.1), Some(item_pos.2)),
         ),
         (
             FlowFlags::Y_FORW,
-            (Some(coords.0), add(coords.1, size.1), Some(coords.2)),
+            (Some(item_pos.0), add(item_pos.1, size.1), Some(item_pos.2)),
         ),
         (
             FlowFlags::Y_BACK,
-            (Some(coords.0), sub(coords.1, size.1), Some(coords.2)),
+            (Some(item_pos.0), sub(item_pos.1, size.1), Some(item_pos.2)),
         ),
         (
             FlowFlags::Z_FORW,
-            (Some(coords.0), Some(coords.1), add(coords.2, size.2)),
+            (Some(item_pos.0), Some(item_pos.1), add(item_pos.2, size.2)),
         ),
         (
             FlowFlags::Z_BACK,
-            (Some(coords.0), Some(coords.1), sub(coords.2, size.2)),
+            (Some(item_pos.0), Some(item_pos.1), sub(item_pos.2, size.2)),
         ),
     ];
     let (sum, count) = dir_map
-        .iter()
+        .par_iter()
         .filter_map(|(dir, nc)| {
             if blk.contains(*dir) {
                 return None;
             }
+            // wrapped to Option for convenient boundary check
             if let (Some(nx), Some(ny), Some(nz)) = *nc {
-                return Some(*src.element((nx, ny, nz).into()));
+                let c = (nx, ny, nz).into();
+                return Some(src.slice(&c));
             }
             None
         })
-        .fold((0.0, 0.0), |acc, v| (acc.0 + v, acc.1 + 1.0));
-    let val = *src.element(coords);
-    *dst = val + force * (sum - count * val);
+        .fold(|| (0.0, 0.0), |acc, v| (acc.0 + v, acc.1 + 1.0))
+        .reduce(|| (0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1));
+    let val = *src.slice(item_pos);
+    val + force * (sum - count as f32 * val)
 }

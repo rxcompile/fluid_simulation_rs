@@ -13,8 +13,8 @@ pub fn iterate_range(first: Coords, size: Coords) -> impl std::iter::Iterator<It
 
 #[test]
 fn iterator_test() {
-    let vec: Vec<_> = iterate(Coords(3, 3, 3)).collect();
-    let vec_t = vec![
+    let vec_i: Vec<Coords> = iterate(Coords(3, 3, 3)).collect();
+    let vec_o: Vec<Coords> = vec![
         (0, 0, 0).into(),
         (1, 0, 0).into(),
         (2, 0, 0).into(),
@@ -43,5 +43,5 @@ fn iterator_test() {
         (1, 2, 2).into(),
         (2, 2, 2).into(),
     ];
-    assert_eq!(vec, vec_t);
+    assert_eq!(vec_o, vec_i);
 }

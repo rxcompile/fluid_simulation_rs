@@ -2,7 +2,8 @@
 name = "fluid_simulation"
 version = "0.2.0"
 authors = ["rxcompile <rxcompile@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-bitflags = "1.2.1"
+bitflags = "2.5.0"
+rayon = "1.10.0"
