@@ -2,9 +2,11 @@ pub mod coords;
 pub mod iterator;
 pub mod sized_array;
 pub mod swapchain;
+pub mod pid;
 
 pub use coords::{Coords, CoordsDiff};
 pub use sized_array::SizedArray3D;
+pub use pid::Pid;
 
 pub const fn index(x: usize, y: usize, z: usize, len_x: usize, len_y: usize, len_z: usize) -> usize {
     assert!(z < len_z);
